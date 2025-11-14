@@ -803,7 +803,8 @@ header h1{
 
 <header>
   <div style="display: flex; align-items: center; gap: 10px;">
-    <img src="logo.png" alt="AngoFlix" style="height: 40px;"> 
+    <!-- Substitua o logo por um placeholder -->
+    <div style="width: 40px; height: 40px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">AF</div>
     <h1>ANGOFLIX</h1>
   </div>
   <button class="button-download" onclick="downloadApp()">
@@ -834,6 +835,12 @@ header h1{
   <div id="playerOptions" class="player-options"></div>
   <div id="downloadOptions" class="download-options"></div>
   <iframe id="playerIframe" src="" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen frameborder="0" scrolling="no"></iframe>
+</div>
+
+<!-- Loading Indicator -->
+<div id="loading" class="loading">
+  <div class="spinner"></div>
+  <div>Carregando...</div>
 </div>
 
 <footer id="siteFooter">
@@ -907,6 +914,10 @@ function setupEventListeners() {
       closePlayer();
     }
   });
+  
+  // Event listeners para as setas do slideshow
+  document.getElementById('prev').addEventListener('click', () => changeSlide(-1));
+  document.getElementById('next').addEventListener('click', () => changeSlide(1));
 }
 
 // Navegação
@@ -953,6 +964,11 @@ function renderRoute(path = window.location.pathname) {
     const id = parts[3];
     showDetails(id, type);
   }
+}
+
+// Home Page - FUNÇÃO QUE ESTAVA FALTANDO
+async function loadHomeContent() {
+  showHome();
 }
 
 // Home Page
@@ -1011,7 +1027,6 @@ async function loadSlideshow() {
     });
     
     slideIndex = 0;
-    setInterval(() => changeSlide(1), 5000);
     
   } catch (error) {
     console.error('Erro ao carregar slideshow:', error);
