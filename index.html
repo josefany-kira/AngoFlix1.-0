@@ -868,7 +868,6 @@ header h1{
 
 <header>
   <div style="display: flex; align-items: center; gap: 10px;">
-    <!-- Substitua o logo por um placeholder -->
     <div style="width: 40px; height: 40px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">AF</div>
     <h1>ANGOFLIX</h1>
   </div>
@@ -1036,7 +1035,7 @@ function renderRoute(path = window.location.pathname) {
   }
 }
 
-// Home Page - FUNÇÃO QUE ESTAVA FALTANDO
+// Home Page
 async function loadHomeContent() {
   showHome();
 }
@@ -1629,198 +1628,199 @@ async function showDetails(id, type) {
   }
 }
 
-// Player - MELHORADO
+// =============================================
+// SISTEMA DE PLAYERS ATUALIZADO - OPÇÃO 1
+// =============================================
+
 function openPlayerModal(id, type, title = '') {
-  currentItemId = id;
-  currentItemType = type;
-  currentTitle = title;
-  
-  const modal = document.getElementById('playerModal');
-  const options = document.getElementById('playerOptions');
-  const downloadOptions = document.getElementById('downloadOptions');
-  const header = document.querySelector('.player-header h2');
-  
-  // Atualizar título do player
-  if (title) {
-    header.textContent = `Assistir: ${title}`;
-  }
-  
-  // Limpar opções anteriores
-  options.innerHTML = '';
-  downloadOptions.innerHTML = '';
-  downloadOptions.style.display = 'none';
-  
-  // Adicionar opções de player
-  const playerOptions = [
-    { 
-      name: 'PlayerFlix', 
-      icon: 'fa-play-circle',
-      action: () => loadPlayerFlix(id, type)
-    },
-    { 
-      name: 'VidSrc', 
-      icon: 'fa-film',
-      action: () => loadVidSrc(id, type)
-    },
-    { 
-      name: 'SuperEmbed', 
-      icon: 'fa-tv',
-      action: () => loadSuperEmbed(id, type)
-    },
-    { 
-      name: 'Download', 
-      icon: 'fa-download',
-      action: () => showDownloadOptions(id, type)
-    }
-  ];
-  
-  playerOptions.forEach((option, index) => {
-    const button = document.createElement('button');
-    button.className = 'player-option';
-    if (index === 0) {
-      button.classList.add('active');
-      currentPlayer = 'playerflix';
+    currentItemId = id;
+    currentItemType = type;
+    currentTitle = title;
+    
+    const modal = document.getElementById('playerModal');
+    const options = document.getElementById('playerOptions');
+    const downloadOptions = document.getElementById('downloadOptions');
+    const header = document.querySelector('.player-header h2');
+    
+    // Atualizar título do player
+    if (title) {
+        header.textContent = `Assistir: ${title}`;
     }
     
-    button.innerHTML = `
-      <i class="fas ${option.icon}"></i>
-      ${option.name}
-    `;
+    // Limpar opções anteriores
+    options.innerHTML = '';
+    downloadOptions.innerHTML = '';
+    downloadOptions.style.display = 'none';
     
-    button.onclick = () => {
-      // Remover classe active de todos os botões
-      document.querySelectorAll('.player-option').forEach(btn => btn.classList.remove('active'));
-      // Adicionar classe active ao botão clicado
-      button.classList.add('active');
-      
-      // Executar ação
-      option.action();
-    };
+    // OPÇÕES DE PLAYER MAIS RÁPIDAS E EFICIENTES
+    const playerOptions = [
+        { 
+            name: '⚡ Player Rápido', 
+            icon: 'fa-bolt',
+            action: () => loadDirectPlayer(id, type)
+        },
+        { 
+            name: '🎬 Player Principal', 
+            icon: 'fa-play-circle',
+            action: () => loadMainPlayer(id, type)
+        },
+        { 
+            name: '📺 Player Alternativo', 
+            icon: 'fa-tv',
+            action: () => loadAlternativePlayer(id, type)
+        },
+        { 
+            name: '⬇️ Download', 
+            icon: 'fa-download',
+            action: () => showDownloadOptions(id, type)
+        }
+    ];
     
-    options.appendChild(button);
-  });
-  
-  // Carregar player padrão (PlayerFlix)
-  loadPlayerFlix(id, type);
-  
-  modal.style.display = 'flex';
+    playerOptions.forEach((option, index) => {
+        const button = document.createElement('button');
+        button.className = 'player-option';
+        if (index === 0) {
+            button.classList.add('active');
+            currentPlayer = 'direct';
+        }
+        
+        button.innerHTML = `
+            <i class="fas ${option.icon}"></i>
+            ${option.name}
+        `;
+        
+        button.onclick = () => {
+            document.querySelectorAll('.player-option').forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            option.action();
+        };
+        
+        options.appendChild(button);
+    });
+    
+    // Carregar player padrão (mais rápido)
+    loadDirectPlayer(id, type);
+    modal.style.display = 'flex';
 }
 
-function loadPlayerFlix(id, type) {
-  currentPlayer = 'playerflix';
-  const iframe = document.getElementById('playerIframe');
-  
-  // URL do PlayerFlix conforme solicitado
-  const playerUrl = `https://playerflixapi.com/${type === 'movie' ? 'filme' : 'serie'}/${id}`;
-  
-  iframe.src = playerUrl;
-  iframe.style.display = 'block';
-  
-  // Esconder opções de download
-  document.getElementById('downloadOptions').style.display = 'none';
+// PLAYER 1: Mais Rápido
+function loadDirectPlayer(id, type) {
+    currentPlayer = 'direct';
+    const iframe = document.getElementById('playerIframe');
+    
+    // Player mais rápido e limpo
+    const playerUrl = `https://vidsrc.to/embed/${type === 'movie' ? 'movie' : 'tv'}/${id}`;
+    
+    iframe.src = playerUrl;
+    iframe.style.display = 'block';
+    document.getElementById('downloadOptions').style.display = 'none';
+    
+    showNotification('⚡ Carregando player rápido...');
 }
 
-function loadVidSrc(id, type) {
-  currentPlayer = 'vidsrc';
-  const iframe = document.getElementById('playerIframe');
-  
-  // URL do VidSrc
-  const playerUrl = type === 'movie' ? 
-    `https://vidsrc.cc/v2/embed/movie/${id}` :
-    `https://vidsrc.cc/v2/embed/tv/${id}`;
-  
-  iframe.src = playerUrl;
-  iframe.style.display = 'block';
-  
-  // Esconder opções de download
-  document.getElementById('downloadOptions').style.display = 'none';
+// PLAYER 2: Principal
+function loadMainPlayer(id, type) {
+    currentPlayer = 'main';
+    const iframe = document.getElementById('playerIframe');
+    
+    // Player principal alternativo
+    const playerUrl = type === 'movie' ? 
+        `https://www.2embed.cc/embed/${id}` :
+        `https://www.2embed.cc/embedtv/${id}`;
+    
+    iframe.src = playerUrl;
+    iframe.style.display = 'block';
+    document.getElementById('downloadOptions').style.display = 'none';
+    
+    showNotification('🎬 Carregando player principal...');
 }
 
-function loadSuperEmbed(id, type) {
-  currentPlayer = 'superembed';
-  const iframe = document.getElementById('playerIframe');
-  
-  // URL do SuperEmbed
-  const playerUrl = type === 'movie' ? 
-    `https://multiembed.mov/direct/movie.php?id=${id}` :
-    `https://multiembed.mov/direct/tv.php?id=${id}&s=1&e=1`;
-  
-  iframe.src = playerUrl;
-  iframe.style.display = 'block';
-  
-  // Esconder opções de download
-  document.getElementById('downloadOptions').style.display = 'none';
+// PLAYER 3: Alternativo
+function loadAlternativePlayer(id, type) {
+    currentPlayer = 'alternative';
+    const iframe = document.getElementById('playerIframe');
+    
+    // Player alternativo
+    const playerUrl = type === 'movie' ? 
+        `https://embed.smashy.stream/movie/${id}` :
+        `https://embed.smashy.stream/tv/${id}/1/1`;
+    
+    iframe.src = playerUrl;
+    iframe.style.display = 'block';
+    document.getElementById('downloadOptions').style.display = 'none';
+    
+    showNotification('📺 Carregando player alternativo...');
 }
 
 function showDownloadOptions(id, type) {
-  currentPlayer = 'download';
-  const iframe = document.getElementById('playerIframe');
-  const downloadOptions = document.getElementById('downloadOptions');
-  
-  // Esconder iframe do player
-  iframe.style.display = 'none';
-  
-  // Mostrar opções de download
-  downloadOptions.style.display = 'block';
-  downloadOptions.innerHTML = `
-    <h3 style="margin-top:0; margin-bottom:15px; text-align:center; color:var(--text);">
-      <i class="fas fa-download"></i> Opções de Download
-    </h3>
-    <div class="download-option">
-      <div>
-        <div style="font-weight:600; margin-bottom:5px;">Qualidade HD 1080p</div>
-        <div style="font-size:12px; color:var(--muted);">Tamanho aproximado: 2.5GB</div>
-      </div>
-      <div style="display:flex; align-items:center; gap:10px;">
-        <span class="download-quality">1080p</span>
-        <button class="download-btn" onclick="showDownloadMessage('1080p')">
-          <i class="fas fa-download"></i> Baixar
-        </button>
-      </div>
-    </div>
-    <div class="download-option">
-      <div>
-        <div style="font-weight:600; margin-bottom:5px;">Qualidade HD 720p</div>
-        <div style="font-size:12px; color:var(--muted);">Tamanho aproximado: 1.5GB</div>
-      </div>
-      <div style="display:flex; align-items:center; gap:10px;">
-        <span class="download-quality">720p</span>
-        <button class="download-btn" onclick="showDownloadMessage('720p')">
-          <i class="fas fa-download"></i> Baixar
-        </button>
-      </div>
-    </div>
-    <div class="download-option">
-      <div>
-        <div style="font-weight:600; margin-bottom:5px;">Qualidade SD 480p</div>
-        <div style="font-size:12px; color:var(--muted);">Tamanho aproximado: 800MB</div>
-      </div>
-      <div style="display:flex; align-items:center; gap:10px;">
-        <span class="download-quality">480p</span>
-        <button class="download-btn" onclick="showDownloadMessage('480p')">
-          <i class="fas fa-download"></i> Baixar
-        </button>
-      </div>
-    </div>
-    <div style="margin-top:15px; padding:10px; background:var(--surface-2); border-radius:var(--radius-sm); font-size:12px; text-align:center; color:var(--muted);">
-      <i class="fas fa-info-circle"></i> Os downloads podem demorar dependendo da sua conexão
-    </div>
-  `;
+    currentPlayer = 'download';
+    const iframe = document.getElementById('playerIframe');
+    const downloadOptions = document.getElementById('downloadOptions');
+    
+    // Esconder iframe do player
+    iframe.style.display = 'none';
+    
+    // Mostrar opções de download
+    downloadOptions.style.display = 'block';
+    downloadOptions.innerHTML = `
+        <h3 style="margin-top:0; margin-bottom:15px; text-align:center; color:var(--text);">
+            <i class="fas fa-download"></i> Opções de Download
+        </h3>
+        <div class="download-option">
+            <div>
+                <div style="font-weight:600; margin-bottom:5px;">Qualidade HD 1080p</div>
+                <div style="font-size:12px; color:var(--muted);">Tamanho aproximado: 2.5GB</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span class="download-quality">1080p</span>
+                <button class="download-btn" onclick="showDownloadMessage('1080p')">
+                    <i class="fas fa-download"></i> Baixar
+                </button>
+            </div>
+        </div>
+        <div class="download-option">
+            <div>
+                <div style="font-weight:600; margin-bottom:5px;">Qualidade HD 720p</div>
+                <div style="font-size:12px; color:var(--muted);">Tamanho aproximado: 1.5GB</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span class="download-quality">720p</span>
+                <button class="download-btn" onclick="showDownloadMessage('720p')">
+                    <i class="fas fa-download"></i> Baixar
+                </button>
+            </div>
+        </div>
+        <div class="download-option">
+            <div>
+                <div style="font-weight:600; margin-bottom:5px;">Qualidade SD 480p</div>
+                <div style="font-size:12px; color:var(--muted);">Tamanho aproximado: 800MB</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span class="download-quality">480p</span>
+                <button class="download-btn" onclick="showDownloadMessage('480p')">
+                    <i class="fas fa-download"></i> Baixar
+                </button>
+            </div>
+        </div>
+        <div style="margin-top:15px; padding:10px; background:var(--surface-2); border-radius:var(--radius-sm); font-size:12px; text-align:center; color:var(--muted);">
+            <i class="fas fa-info-circle"></i> Os downloads podem demorar dependendo da sua conexão
+        </div>
+    `;
 }
 
 function showDownloadMessage(quality) {
-  showNotification(`Download em ${quality} iniciado! O arquivo será salvo em seus downloads.`);
+    showNotification(`Download em ${quality} iniciado! O arquivo será salvo em seus downloads.`);
 }
 
 function closePlayer() {
-  const modal = document.getElementById('playerModal');
-  const iframe = document.getElementById('playerIframe');
-  const downloadOptions = document.getElementById('downloadOptions');
-  
-  iframe.src = '';
-  iframe.style.display = 'block';
-  downloadOptions.style.display = 'none';
-  modal.style.display = 'none';
+    const modal = document.getElementById('playerModal');
+    const iframe = document.getElementById('playerIframe');
+    const downloadOptions = document.getElementById('downloadOptions');
+    
+    iframe.src = '';
+    iframe.style.display = 'block';
+    downloadOptions.style.display = 'none';
+    modal.style.display = 'none';
 }
 
 // Trailer - SEM REDIRECIONAMENTO
