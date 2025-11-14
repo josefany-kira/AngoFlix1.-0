@@ -646,6 +646,94 @@ header h1{
   background:var(--accent-2);
 }
 
+/* Player Options */
+.player-options{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin:20px 0;
+  justify-content:center;
+}
+
+.player-option{
+  background:var(--surface);
+  border:2px solid var(--surface);
+  color:var(--text);
+  padding:12px 20px;
+  border-radius:var(--radius);
+  cursor:pointer;
+  transition:all .3s ease;
+  font-weight:600;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.player-option:hover{
+  border-color:var(--accent);
+  transform:translateY(-2px);
+}
+
+.player-option.active{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#fff;
+}
+
+.download-options{
+  display:none;
+  margin-top:20px;
+  padding:20px;
+  background:var(--surface);
+  border-radius:var(--radius);
+  border:1px solid rgba(229,9,20,0.1);
+}
+
+.download-option{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:12px 15px;
+  margin-bottom:10px;
+  background:var(--surface-2);
+  border-radius:var(--radius-sm);
+  transition:all .2s ease;
+}
+
+.download-option:hover{
+  background:var(--surface);
+  transform:translateX(5px);
+}
+
+.download-option:last-child{
+  margin-bottom:0;
+}
+
+.download-quality{
+  background:var(--accent);
+  color:#fff;
+  padding:4px 10px;
+  border-radius:15px;
+  font-size:12px;
+  font-weight:600;
+}
+
+.download-btn{
+  background:var(--accent-2);
+  color:#fff;
+  border:none;
+  padding:8px 15px;
+  border-radius:var(--radius-sm);
+  cursor:pointer;
+  font-weight:600;
+  transition:all .2s ease;
+}
+
+.download-btn:hover{
+  background:var(--accent);
+  transform:translateY(-2px);
+}
+
 /* Responsive */
 @media (max-width: 768px){
   .grid-view{
@@ -672,6 +760,14 @@ header h1{
   
   .slide{
     height:220px;
+  }
+  
+  .player-options{
+    flex-direction:column;
+  }
+  
+  .player-option{
+    justify-content:center;
   }
 }
 
@@ -704,8 +800,12 @@ header h1{
 </head>
 <body>
 
+
 <header>
-  <h1>🎬 ANGOFLIX</h1>
+  <div style="display: flex; align-items: center; gap: 10px;">
+    <img src="assets/logo.png" alt="AngoFlix" style="height: 40px;"> 
+    <h1>ANGOFLIX</h1>
+  </div>
   <button class="button-download" onclick="downloadApp()">
     <i class="fas fa-download"></i> Instalar App
   </button>
@@ -731,6 +831,8 @@ header h1{
 <!-- Player Modal -->
 <div id="playerModal">
   <span class="closeBtn" onclick="closePlayer()">&times;</span>
+  <div id="playerOptions" class="player-options"></div>
+  <div id="downloadOptions" class="download-options"></div>
   <iframe id="playerIframe" src="" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen frameborder="0" scrolling="no"></iframe>
 </div>
 
@@ -780,6 +882,9 @@ let totalPages = 1;
 let currentType = 'movie';
 let currentQuery = '';
 let currentGenre = '';
+let currentPlayer = '';
+let currentItemId = '';
+let currentItemType = '';
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
@@ -1441,24 +1546,198 @@ async function showDetails(id, type) {
 
 // Player
 function openPlayerModal(id, type) {
+  currentItemId = id;
+  currentItemType = type;
+  
   const modal = document.getElementById('playerModal');
+  const options = document.getElementById('playerOptions');
+  const downloadOptions = document.getElementById('downloadOptions');
+  
+  // Limpar opções anteriores
+  options.innerHTML = '';
+  downloadOptions.innerHTML = '';
+  downloadOptions.style.display = 'none';
+  
+  // Adicionar opções de player
+  const playerOptions = [
+    { 
+      name: 'PlayerFlix', 
+      icon: 'fa-play-circle',
+      action: () => loadPlayerFlix(id, type)
+    },
+    { 
+      name: 'VidSrc', 
+      icon: 'fa-film',
+      action: () => loadVidSrc(id, type)
+    },
+    { 
+      name: 'SuperEmbed', 
+      icon: 'fa-tv',
+      action: () => loadSuperEmbed(id, type)
+    },
+    { 
+      name: 'Download', 
+      icon: 'fa-download',
+      action: () => showDownloadOptions(id, type)
+    }
+  ];
+  
+  playerOptions.forEach((option, index) => {
+    const button = document.createElement('button');
+    button.className = 'player-option';
+    if (index === 0) {
+      button.classList.add('active');
+      currentPlayer = 'playerflix';
+    }
+    
+    button.innerHTML = `
+      <i class="fas ${option.icon}"></i>
+      ${option.name}
+    `;
+    
+    button.onclick = () => {
+      // Remover classe active de todos os botões
+      document.querySelectorAll('.player-option').forEach(btn => btn.classList.remove('active'));
+      // Adicionar classe active ao botão clicado
+      button.classList.add('active');
+      
+      // Executar ação
+      option.action();
+    };
+    
+    options.appendChild(button);
+  });
+  
+  // Carregar player padrão (PlayerFlix)
+  loadPlayerFlix(id, type);
+  
+  modal.style.display = 'flex';
+}
+
+function loadPlayerFlix(id, type) {
+  currentPlayer = 'playerflix';
   const iframe = document.getElementById('playerIframe');
   
-  // Aqui você integraria com seu serviço de streaming preferido
-  // Exemplo genérico - substitua pela sua integração real
+  // URL do PlayerFlix conforme solicitado
+  const playerUrl = `https://playerflixapi.com/${type === 'movie' ? 'filme' : 'serie'}/${id}`;
+  
+  iframe.src = playerUrl;
+  
+  // Esconder opções de download
+  document.getElementById('downloadOptions').style.display = 'none';
+}
+
+function loadVidSrc(id, type) {
+  currentPlayer = 'vidsrc';
+  const iframe = document.getElementById('playerIframe');
+  
+  // URL do VidSrc
   const playerUrl = type === 'movie' ? 
     `https://vidsrc.cc/v2/embed/movie/${id}` :
     `https://vidsrc.cc/v2/embed/tv/${id}`;
   
   iframe.src = playerUrl;
-  modal.style.display = 'flex';
+  
+  // Esconder opções de download
+  document.getElementById('downloadOptions').style.display = 'none';
+}
+
+function loadSuperEmbed(id, type) {
+  currentPlayer = 'superembed';
+  const iframe = document.getElementById('playerIframe');
+  
+  // URL do SuperEmbed
+  const playerUrl = type === 'movie' ? 
+    `https://multiembed.mov/direct/movie.php?id=${id}` :
+    `https://multiembed.mov/direct/tv.php?id=${id}&s=1&e=1`;
+  
+  iframe.src = playerUrl;
+  
+  // Esconder opções de download
+  document.getElementById('downloadOptions').style.display = 'none';
+}
+
+function showDownloadOptions(id, type) {
+  currentPlayer = 'download';
+  const iframe = document.getElementById('playerIframe');
+  const downloadOptions = document.getElementById('downloadOptions');
+  
+  // Esconder iframe do player
+  iframe.style.display = 'none';
+  
+  // Mostrar opções de download
+  downloadOptions.style.display = 'block';
+  downloadOptions.innerHTML = `
+    <h3 style="margin-top:0; margin-bottom:15px; text-align:center; color:var(--text);">
+      <i class="fas fa-download"></i> Opções de Download
+    </h3>
+    <div class="download-option">
+      <div>
+        <div style="font-weight:600; margin-bottom:5px;">Qualidade HD 1080p</div>
+        <div style="font-size:12px; color:var(--muted);">Tamanho aproximado: 2.5GB</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="download-quality">1080p</span>
+        <button class="download-btn" onclick="downloadContent('${id}', '${type}', '1080p')">
+          <i class="fas fa-download"></i> Baixar
+        </button>
+      </div>
+    </div>
+    <div class="download-option">
+      <div>
+        <div style="font-weight:600; margin-bottom:5px;">Qualidade HD 720p</div>
+        <div style="font-size:12px; color:var(--muted);">Tamanho aproximado: 1.5GB</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="download-quality">720p</span>
+        <button class="download-btn" onclick="downloadContent('${id}', '${type}', '720p')">
+          <i class="fas fa-download"></i> Baixar
+        </button>
+      </div>
+    </div>
+    <div class="download-option">
+      <div>
+        <div style="font-weight:600; margin-bottom:5px;">Qualidade SD 480p</div>
+        <div style="font-size:12px; color:var(--muted);">Tamanho aproximado: 800MB</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="download-quality">480p</span>
+        <button class="download-btn" onclick="downloadContent('${id}', '${type}', '480p')">
+          <i class="fas fa-download"></i> Baixar
+        </button>
+      </div>
+    </div>
+    <div style="margin-top:15px; padding:10px; background:var(--surface-2); border-radius:var(--radius-sm); font-size:12px; text-align:center; color:var(--muted);">
+      <i class="fas fa-info-circle"></i> Os downloads podem demorar dependendo da sua conexão
+    </div>
+  `;
+}
+
+function downloadContent(id, type, quality) {
+  // Em uma implementação real, aqui você teria a lógica para iniciar o download
+  // Por enquanto, vamos simular o download
+  alert(`Iniciando download em ${quality}...\n\nEm uma implementação real, o download começaria agora.`);
+  
+  // Simulação de download (substitua por sua lógica real)
+  simulateDownload(id, type, quality);
+}
+
+function simulateDownload(id, type, quality) {
+  // Esta é uma simulação - em um ambiente real, você teria URLs reais de download
+  console.log(`Iniciando download: ID=${id}, Tipo=${type}, Qualidade=${quality}`);
+  
+  // Em uma implementação real, você redirecionaria para o arquivo de download
+  // window.location.href = `https://seuservidor.com/download/${type}/${id}?quality=${quality}`;
 }
 
 function closePlayer() {
   const modal = document.getElementById('playerModal');
   const iframe = document.getElementById('playerIframe');
+  const downloadOptions = document.getElementById('downloadOptions');
   
   iframe.src = '';
+  iframe.style.display = 'block';
+  downloadOptions.style.display = 'none';
   modal.style.display = 'none';
 }
 
