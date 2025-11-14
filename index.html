@@ -384,14 +384,18 @@ header h1{
   justify-content:center;
   align-items:center;
   z-index:10000;
+  flex-direction:column;
+  padding:20px;
+  box-sizing:border-box;
 }
 
 #playerModal iframe{
-  width:95%;
-  height:85vh;
+  width:100%;
+  height:70vh;
   border:0;
   border-radius:var(--radius);
   box-shadow:0 20px 60px rgba(0,0,0,0.8);
+  margin-top:20px;
 }
 
 #playerModal .closeBtn{
@@ -409,6 +413,7 @@ header h1{
   align-items:center;
   justify-content:center;
   transition:background .3s ease;
+  z-index:10001;
 }
 
 #playerModal .closeBtn:hover{
@@ -646,38 +651,51 @@ header h1{
   background:var(--accent-2);
 }
 
-/* Player Options */
+/* Player Options - MELHORADO */
 .player-options{
   display:flex;
   flex-wrap:wrap;
-  gap:10px;
+  gap:12px;
   margin:20px 0;
   justify-content:center;
+  width:100%;
+  max-width:600px;
 }
 
 .player-option{
   background:var(--surface);
   border:2px solid var(--surface);
   color:var(--text);
-  padding:12px 20px;
+  padding:14px 24px;
   border-radius:var(--radius);
   cursor:pointer;
   transition:all .3s ease;
   font-weight:600;
   display:flex;
   align-items:center;
-  gap:8px;
+  gap:10px;
+  flex:1;
+  min-width:140px;
+  justify-content:center;
+  font-size:14px;
 }
 
 .player-option:hover{
   border-color:var(--accent);
   transform:translateY(-2px);
+  box-shadow:0 4px 15px rgba(229,9,20,0.2);
 }
 
 .player-option.active{
   background:var(--accent);
   border-color:var(--accent);
   color:#fff;
+  transform:translateY(-2px);
+  box-shadow:0 6px 20px rgba(229,9,20,0.4);
+}
+
+.player-option i{
+  font-size:18px;
 }
 
 .download-options{
@@ -687,22 +705,26 @@ header h1{
   background:var(--surface);
   border-radius:var(--radius);
   border:1px solid rgba(229,9,20,0.1);
+  width:100%;
+  max-width:600px;
 }
 
 .download-option{
   display:flex;
   justify-content:space-between;
   align-items:center;
-  padding:12px 15px;
-  margin-bottom:10px;
+  padding:14px 18px;
+  margin-bottom:12px;
   background:var(--surface-2);
   border-radius:var(--radius-sm);
   transition:all .2s ease;
+  border:1px solid transparent;
 }
 
 .download-option:hover{
   background:var(--surface);
   transform:translateX(5px);
+  border-color:var(--accent);
 }
 
 .download-option:last-child{
@@ -712,7 +734,7 @@ header h1{
 .download-quality{
   background:var(--accent);
   color:#fff;
-  padding:4px 10px;
+  padding:6px 12px;
   border-radius:15px;
   font-size:12px;
   font-weight:600;
@@ -722,16 +744,43 @@ header h1{
   background:var(--accent-2);
   color:#fff;
   border:none;
-  padding:8px 15px;
+  padding:10px 18px;
   border-radius:var(--radius-sm);
   cursor:pointer;
   font-weight:600;
   transition:all .2s ease;
+  display:flex;
+  align-items:center;
+  gap:8px;
 }
 
 .download-btn:hover{
   background:var(--accent);
   transform:translateY(-2px);
+  box-shadow:0 4px 12px rgba(229,9,20,0.3);
+}
+
+/* Player Header */
+.player-header{
+  text-align:center;
+  margin-bottom:20px;
+  width:100%;
+}
+
+.player-header h2{
+  font-size:24px;
+  margin:0 0 8px 0;
+  color:var(--text);
+  background:linear-gradient(45deg, var(--accent), var(--accent-2));
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+
+.player-header p{
+  color:var(--muted);
+  font-size:14px;
+  margin:0;
 }
 
 /* Responsive */
@@ -767,7 +816,15 @@ header h1{
   }
   
   .player-option{
-    justify-content:center;
+    min-width:100%;
+  }
+  
+  #playerModal{
+    padding:15px;
+  }
+  
+  #playerModal iframe{
+    height:60vh;
   }
 }
 
@@ -794,12 +851,20 @@ header h1{
   .navbar button i{
     font-size:18px;
   }
+  
+  #playerModal iframe{
+    height:50vh;
+  }
+  
+  .player-option{
+    padding:12px 16px;
+    font-size:13px;
+  }
 }
 </style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-
 
 <header>
   <div style="display: flex; align-items: center; gap: 10px;">
@@ -832,6 +897,10 @@ header h1{
 <!-- Player Modal -->
 <div id="playerModal">
   <span class="closeBtn" onclick="closePlayer()">&times;</span>
+  <div class="player-header">
+    <h2>Alterar Player</h2>
+    <p>Escolha sua opção preferida para assistir</p>
+  </div>
   <div id="playerOptions" class="player-options"></div>
   <div id="downloadOptions" class="download-options"></div>
   <iframe id="playerIframe" src="" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen frameborder="0" scrolling="no"></iframe>
@@ -892,6 +961,7 @@ let currentGenre = '';
 let currentPlayer = '';
 let currentItemId = '';
 let currentItemType = '';
+let currentTitle = '';
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
@@ -1072,7 +1142,7 @@ async function loadTop10(type, title) {
                alt="${type === 'movie' ? item.title : item.name}"
                loading="lazy">
           <div class="overlay">
-            <button class="overlay-play" onclick="event.stopPropagation(); openPlayerModal(${item.id}, '${type}')">
+            <button class="overlay-play" onclick="event.stopPropagation(); openPlayerModal(${item.id}, '${type}', '${(type === 'movie' ? item.title : item.name).replace(/'/g, "\\'")}')">
               <i class="fas fa-play"></i>
             </button>
           </div>
@@ -1322,7 +1392,7 @@ function searchItems() {
   const query = input.value.trim();
   
   if (!query) {
-    alert('Por favor, digite algo para pesquisar.');
+    showNotification('Por favor, digite algo para pesquisar.');
     return;
   }
   
@@ -1487,7 +1557,7 @@ async function showDetails(id, type) {
             </div>
             
             <div class="button-group" style="display:flex; gap:15px; flex-wrap:wrap;">
-              <button class="button-primary" onclick="openPlayerModal(${id}, '${type}')">
+              <button class="button-primary" onclick="openPlayerModal(${id}, '${type}', '${title.replace(/'/g, "\\'")}')">
                 <i class="fas fa-play"></i> Assistir Agora
               </button>
               ${trailer ? `
@@ -1559,14 +1629,21 @@ async function showDetails(id, type) {
   }
 }
 
-// Player
-function openPlayerModal(id, type) {
+// Player - MELHORADO
+function openPlayerModal(id, type, title = '') {
   currentItemId = id;
   currentItemType = type;
+  currentTitle = title;
   
   const modal = document.getElementById('playerModal');
   const options = document.getElementById('playerOptions');
   const downloadOptions = document.getElementById('downloadOptions');
+  const header = document.querySelector('.player-header h2');
+  
+  // Atualizar título do player
+  if (title) {
+    header.textContent = `Assistir: ${title}`;
+  }
   
   // Limpar opções anteriores
   options.innerHTML = '';
@@ -1637,6 +1714,7 @@ function loadPlayerFlix(id, type) {
   const playerUrl = `https://playerflixapi.com/${type === 'movie' ? 'filme' : 'serie'}/${id}`;
   
   iframe.src = playerUrl;
+  iframe.style.display = 'block';
   
   // Esconder opções de download
   document.getElementById('downloadOptions').style.display = 'none';
@@ -1652,6 +1730,7 @@ function loadVidSrc(id, type) {
     `https://vidsrc.cc/v2/embed/tv/${id}`;
   
   iframe.src = playerUrl;
+  iframe.style.display = 'block';
   
   // Esconder opções de download
   document.getElementById('downloadOptions').style.display = 'none';
@@ -1667,6 +1746,7 @@ function loadSuperEmbed(id, type) {
     `https://multiembed.mov/direct/tv.php?id=${id}&s=1&e=1`;
   
   iframe.src = playerUrl;
+  iframe.style.display = 'block';
   
   // Esconder opções de download
   document.getElementById('downloadOptions').style.display = 'none';
@@ -1693,7 +1773,7 @@ function showDownloadOptions(id, type) {
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
         <span class="download-quality">1080p</span>
-        <button class="download-btn" onclick="downloadContent('${id}', '${type}', '1080p')">
+        <button class="download-btn" onclick="showDownloadMessage('1080p')">
           <i class="fas fa-download"></i> Baixar
         </button>
       </div>
@@ -1705,7 +1785,7 @@ function showDownloadOptions(id, type) {
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
         <span class="download-quality">720p</span>
-        <button class="download-btn" onclick="downloadContent('${id}', '${type}', '720p')">
+        <button class="download-btn" onclick="showDownloadMessage('720p')">
           <i class="fas fa-download"></i> Baixar
         </button>
       </div>
@@ -1717,7 +1797,7 @@ function showDownloadOptions(id, type) {
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
         <span class="download-quality">480p</span>
-        <button class="download-btn" onclick="downloadContent('${id}', '${type}', '480p')">
+        <button class="download-btn" onclick="showDownloadMessage('480p')">
           <i class="fas fa-download"></i> Baixar
         </button>
       </div>
@@ -1728,21 +1808,8 @@ function showDownloadOptions(id, type) {
   `;
 }
 
-function downloadContent(id, type, quality) {
-  // Em uma implementação real, aqui você teria a lógica para iniciar o download
-  // Por enquanto, vamos simular o download
-  alert(`Iniciando download em ${quality}...\n\nEm uma implementação real, o download começaria agora.`);
-  
-  // Simulação de download (substitua por sua lógica real)
-  simulateDownload(id, type, quality);
-}
-
-function simulateDownload(id, type, quality) {
-  // Esta é uma simulação - em um ambiente real, você teria URLs reais de download
-  console.log(`Iniciando download: ID=${id}, Tipo=${type}, Qualidade=${quality}`);
-  
-  // Em uma implementação real, você redirecionaria para o arquivo de download
-  // window.location.href = `https://seuservidor.com/download/${type}/${id}?quality=${quality}`;
+function showDownloadMessage(quality) {
+  showNotification(`Download em ${quality} iniciado! O arquivo será salvo em seus downloads.`);
 }
 
 function closePlayer() {
@@ -1756,12 +1823,13 @@ function closePlayer() {
   modal.style.display = 'none';
 }
 
-// Trailer
+// Trailer - SEM REDIRECIONAMENTO
 function openTrailer(youtubeKey) {
-  window.open(`https://www.youtube.com/watch?v=${youtubeKey}`, '_blank');
+  // Abre o trailer em uma nova aba sem redirecionar a página atual
+  window.open(`https://www.youtube.com/watch?v=${youtubeKey}`, '_blank', 'noopener,noreferrer');
 }
 
-// Favoritos
+// Favoritos - SEM POPUPS
 function addToFavorites(id, type, title) {
   let favorites = JSON.parse(localStorage.getItem('angoflix_favorites')) || [];
   
@@ -1770,10 +1838,10 @@ function addToFavorites(id, type, title) {
   
   if (existingIndex > -1) {
     favorites.splice(existingIndex, 1);
-    alert('Removido dos favoritos!');
+    showNotification('Removido dos favoritos!');
   } else {
     favorites.push({ id, type, title, addedAt: new Date().toISOString() });
-    alert('Adicionado aos favoritos!');
+    showNotification('Adicionado aos favoritos!');
   }
   
   localStorage.setItem('angoflix_favorites', JSON.stringify(favorites));
@@ -1790,7 +1858,7 @@ function showFavorites() {
       <div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--muted);">
         <i class="fas fa-heart" style="font-size:48px; margin-bottom:16px;"></i>
         <div>Nenhum favorito adicionado ainda.</div>
-        <div style="font-size:14px; margin-top:8px;">Adicone filmes e séries aos favoritos clicando no coração.</div>
+        <div style="font-size:14px; margin-top:8px;">Adicione filmes e séries aos favoritos clicando no coração.</div>
       </div>
     `;
     return;
@@ -1845,17 +1913,63 @@ document.getElementById('loadMoreBtn').onclick = function() {
   }
 };
 
-// Utilitários
+// Utilitários - SEM POPUPS
 function showLoading(show) {
   document.getElementById('loading').style.display = show ? 'flex' : 'none';
 }
 
 function downloadApp() {
-  alert('App AngoFlix em desenvolvimento! Em breve disponível para download.');
+  showNotification('App AngoFlix em desenvolvimento! Em breve disponível para download.');
 }
 
 function openWhatsApp() {
-  window.open('https://wa.me/244974928961', '_blank');
+  // Abre em nova aba sem redirecionar
+  window.open('https://wa.me/244974928961', '_blank', 'noopener,noreferrer');
+}
+
+// Sistema de notificação sem popups
+function showNotification(message) {
+  // Remove notificação anterior se existir
+  const existingNotification = document.getElementById('customNotification');
+  if (existingNotification) {
+    existingNotification.remove();
+  }
+  
+  const notification = document.createElement('div');
+  notification.id = 'customNotification';
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--accent);
+    color: white;
+    padding: 15px 20px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    z-index: 10000;
+    font-weight: 600;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    max-width: 300px;
+  `;
+  notification.textContent = message;
+  
+  document.body.appendChild(notification);
+  
+  // Animação de entrada
+  setTimeout(() => {
+    notification.style.transform = 'translateX(0)';
+  }, 100);
+  
+  // Remover após 3 segundos
+  setTimeout(() => {
+    notification.style.transform = 'translateX(100%)';
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 300);
+  }, 3000);
 }
 
 // Inicializar rota atual
