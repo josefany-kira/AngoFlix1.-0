@@ -897,8 +897,8 @@ header h1{
 <div id="playerModal">
   <span class="closeBtn" onclick="closePlayer()">&times;</span>
   <div class="player-header">
-    <h2>Alterar Player</h2>
-    <p>Escolha sua opção preferida para assistir</p>
+    <h2>PlayerFlix</h2>
+    <p>Assista agora com o PlayerFlix</p>
   </div>
   <div id="playerOptions" class="player-options"></div>
   <div id="downloadOptions" class="download-options"></div>
@@ -949,6 +949,9 @@ const BASE_URL = 'https://api.themoviedb.org/3/';
 const IMAGE_URL = 'https://image.tmdb.org/t/p/w500';
 const BACKDROP_URL = 'https://image.tmdb.org/t/p/w1280';
 
+// Firebase Configuration
+const FIREBASE_URL = 'https://angoflix-38853-default-rtdb.firebaseio.com/';
+
 // Variáveis globais
 let slideIndex = 0;
 let slides = [];
@@ -961,22 +964,198 @@ let currentPlayer = '';
 let currentItemId = '';
 let currentItemType = '';
 let currentTitle = '';
+let firebaseMovies = [];
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
   loadHomeContent();
   setupEventListeners();
+  loadFirebaseMovies();
 });
 
+// Carregar filmes do Firebase - CORRIGIDO
+async function loadFirebaseMovies() {
+  try {
+    showLoading(true);
+    console.log('Carregando filmes do Firebase...');
+    
+    const response = await fetch(`${FIREBASE_URL}items.json`);
+    const data = await response.json();
+    
+    console.log('Dados recebidos do Firebase:', data);
+    
+    if (data) {
+      firebaseMovies = [];
+      
+      // Se os dados vierem como array de IDs
+      if (Array.isArray(data)) {
+        console.log('Dados são um array:', data);
+        // Buscar detalhes de cada filme pelos IDs
+        for (const itemId of data) {
+          if (itemId && typeof itemId === 'string') {
+            try {
+              const movieResponse = await fetch(`${FIREBASE_URL}movies/${itemId}.json`);
+              const movieData = await movieResponse.json();
+              if (movieData) {
+                firebaseMovies.push({ ...movieData, id: itemId });
+              }
+            } catch (error) {
+              console.error(`Erro ao carregar filme ${itemId}:`, error);
+            }
+          }
+        }
+      } 
+      // Se vier como objeto com filmes
+      else {
+        console.log('Dados são um objeto:', data);
+        Object.keys(data).forEach(key => {
+          if (data[key] && typeof data[key] === 'object') {
+            firebaseMovies.push({ ...data[key], id: key });
+          }
+        });
+      }
+      
+      console.log('Filmes processados:', firebaseMovies);
+      
+      // Se não encontrou filmes, usar os padrão
+      if (firebaseMovies.length === 0) {
+        console.log('Nenhum filme encontrado, usando filmes padrão');
+        firebaseMovies = getDefaultMovies();
+      }
+    } else {
+      console.log('Nenhum dado recebido do Firebase, usando filmes padrão');
+      firebaseMovies = getDefaultMovies();
+    }
+  } catch (error) {
+    console.error('Erro ao carregar filmes do Firebase:', error);
+    firebaseMovies = getDefaultMovies();
+  } finally {
+    showLoading(false);
+    // Atualizar a seção de filmes exclusivos
+    updateFirebaseMoviesSection();
+  }
+}
+
+// Atualizar a seção de filmes do Firebase
+function updateFirebaseMoviesSection() {
+  const list = document.getElementById('firebase-movies');
+  if (!list) return;
+  
+  if (firebaseMovies.length === 0) {
+    list.innerHTML = '<div style="padding:20px; text-align:center; color:var(--muted);">Carregando filmes...</div>';
+    return;
+  }
+  
+  list.innerHTML = '';
+  
+  // Mostrar os filmes do Firebase
+  firebaseMovies.forEach(movie => {
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'item';
+    
+    // Usar imagem padrão se não tiver capa
+    const coverImage = movie.capa || 'https://via.placeholder.com/300x450/333/fff?text=Imagem+Não+Disponível';
+    const title = movie.titulo || 'Título não disponível';
+    const year = movie.ano || 'N/A';
+    
+    itemDiv.innerHTML = `
+      <div class="poster-wrap">
+        <img src="${coverImage}" 
+             alt="${title}"
+             loading="lazy"
+             onerror="this.src='https://via.placeholder.com/300x450/333/fff?text=Imagem+Não+Disponível'">
+        <div class="overlay">
+          <button class="overlay-play" onclick="openFirebasePlayer('${movie.player || ''}', '${title.replace(/'/g, "\\'")}')">
+            <i class="fas fa-play"></i>
+          </button>
+        </div>
+      </div>
+      <div style="margin-top:10px; text-align:center;">
+        <div style="font-size:14px; font-weight:600;">${title}</div>
+        <div style="font-size:12px; color:var(--muted); margin-top:4px;">${year}</div>
+      </div>
+    `;
+    
+    itemDiv.onclick = () => showFirebaseMovieDetails(movie);
+    list.appendChild(itemDiv);
+  });
+}
+
+// Filmes padrão caso o Firebase não funcione
+function getDefaultMovies() {
+  return [
+    { 
+      "id": "vinski-2021", 
+      "ano": "2021", 
+      "banner": "https://image.tmdb.org/t/p/original/zmVi2MaOfF9AiTn6CzMmIhbFkou.jpg", 
+      "capa": "https://image.tmdb.org/t/p/w300/gDTZNcZj4Kg7Dcu4becTshfTyAS.jpg", 
+      "descrição": "Vinski, de 10 anos, sente-se um estranho e invisível entre os seus colegas, e até mesmo para a sua mãe solteira, Krista. Vinski conhece um farmacêutico misterioso que lhe dá um frasco de pó mágico. Um pó que lhe permite ficar invisível de verdade e atravessar paredes. É fantástico ter os poderes de um super-herói, mas em breve um grupo de criminosos também se interessa pelo segredo da invisibilidade.", 
+      "duração": "85 Min", 
+      "hd": "HD", 
+      "imdb": "IMDb 6", 
+      "player": "https://cdn.cnvsplus.com/m/Vinski.and.the.Invisibility.Powder.2021.1080p.WEB-DL.DUAL.2.0.mp4", 
+      "titulo": "Vinski - O Herói Invisível", 
+      "visualização": "2,407" 
+    },
+    { 
+      "id": "vale-maligno-2024", 
+      "ano": "2024", 
+      "banner": "https://image.tmdb.org/t/p/original/5czIa6TUyMrtldHGXVZNEjnjbjC.jpg", 
+      "capa": "https://image.tmdb.org/t/p/w300/7DG5vDmpJml0IZsIroC4LrN7JIK.jpg", 
+      "descrição": "Claire era apenas uma criança quando seu melhor amigo foi assassinado. 25 anos depois, o pai do garoto morto quer descobrir a verdade sobre o que aconteceu. Com a ajuda de uma vidente, eles se aventuram em um local mal-assombrado, onde algo sombrio e maligno se agita com a presença deles.", 
+      "duração": "118 Min", 
+      "hd": "HD", 
+      "imdb": "IMDb 5.7", 
+      "player": "https://cdn.cnvsplus.com/m/Vale.Maligno.2023.1080p.WEB-DL.DUAL.5.1.mp4", 
+      "titulo": "Vale Maligno", 
+      "visualização": "7,623" 
+    },
+    { 
+      "id": "um-dia-fora-de-controle-2025", 
+      "ano": "2025", 
+      "capa": "https://via.placeholder.com/300x450/333/fff?text=Um+Dia+Fora+de+Controle", 
+      "descrição": "Um thriller de ação emocionante sobre um dia que muda tudo.", 
+      "duração": "120 Min", 
+      "hd": "HD", 
+      "imdb": "IMDb 7.2", 
+      "player": "https://vidsrc.to/embed/movie/tt1234567", 
+      "titulo": "Um Dia Fora de Controle", 
+      "visualização": "1,245" 
+    },
+    { 
+      "id": "o-telefone-preto-2-2025", 
+      "ano": "2025", 
+      "capa": "https://via.placeholder.com/300x450/333/fff?text=O+Telefone+Preto+2", 
+      "descrição": "A continuação do sucesso de terror que aterrorizou o mundo.", 
+      "duração": "110 Min", 
+      "hd": "HD", 
+      "imdb": "IMDb 6.8", 
+      "player": "https://vidsrc.to/embed/movie/tt1234568", 
+      "titulo": "O Telefone Preto 2", 
+      "visualização": "3,567" 
+    },
+    { 
+      "id": "chainsaw-man-2025", 
+      "ano": "2025", 
+      "capa": "https://via.placeholder.com/300x450/333/fff?text=Chainsaw+Man", 
+      "descrição": "A adaptação do famoso anime que conquistou fãs no mundo todo.", 
+      "duração": "95 Min", 
+      "hd": "HD", 
+      "imdb": "IMDb 8.1", 
+      "player": "https://vidsrc.to/embed/movie/tt1234569", 
+      "titulo": "Chainsaw Man - Arco da R", 
+      "visualização": "8,912" 
+    }
+  ];
+}
+
 function setupEventListeners() {
-  // Buscar ao pressionar Enter
   document.getElementById('searchInput').addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
       searchItems();
     }
   });
   
-  // Fechar player modal
   document.querySelector('.closeBtn').addEventListener('click', closePlayer);
   window.addEventListener('click', function(e) {
     if (e.target === document.getElementById('playerModal')) {
@@ -984,9 +1163,10 @@ function setupEventListeners() {
     }
   });
   
-  // Event listeners para as setas do slideshow
   document.getElementById('prev').addEventListener('click', () => changeSlide(-1));
   document.getElementById('next').addEventListener('click', () => changeSlide(1));
+  
+  document.getElementById('loadMoreBtn').addEventListener('click', loadMore);
 }
 
 // Navegação
@@ -999,13 +1179,11 @@ function renderRoute(path = window.location.pathname) {
   const grid = document.getElementById('gridContainer');
   const details = document.getElementById('detailsContainer');
   
-  // Reset displays
   sections.style.display = 'none';
   grid.style.display = 'none';
   details.style.display = 'none';
   document.getElementById('loadMoreContainer').style.display = 'none';
   
-  // Update active nav
   document.querySelectorAll('.navbar button').forEach(btn => btn.classList.remove('active'));
   
   if (path === '/' || path === '') {
@@ -1040,7 +1218,7 @@ async function loadHomeContent() {
   showHome();
 }
 
-// Home Page
+// Home Page - MODIFICADO para incluir a seção de filmes do Firebase
 async function showHome() {
   const sections = document.getElementById('sectionsContainer');
   sections.style.display = 'block';
@@ -1049,20 +1227,26 @@ async function showHome() {
   showLoading(true);
   
   try {
-    // Carregar slideshow
     await loadSlideshow();
-    
-    // Top 10 Filmes
     await loadTop10('movie', 'Top 10 Filmes');
-    
-    // Séries Populares
     await loadPopularSection('tv', 'Séries em Alta');
-    
-    // Filmes Populares
     await loadPopularSection('movie', 'Filmes Populares');
-    
-    // Próximos Lançamentos
     await loadUpcomingMovies();
+    
+    // Adicionar seção para filmes do Firebase
+    const sectionDiv = document.createElement('div');
+    sectionDiv.innerHTML = `
+      <h3 class="section-title">Filmes Exclusivos</h3>
+      <div class="horizontal-list" id="firebase-movies">
+        <div style="padding:20px; text-align:center; color:var(--muted);">Carregando filmes...</div>
+      </div>
+    `;
+    sections.appendChild(sectionDiv);
+    
+    // Se os filmes já foram carregados, atualizar a seção
+    if (firebaseMovies.length > 0) {
+      updateFirebaseMoviesSection();
+    }
     
   } catch (error) {
     console.error('Erro ao carregar conteúdo:', error);
@@ -1071,82 +1255,265 @@ async function showHome() {
   }
 }
 
-async function loadSlideshow() {
-  const slideDiv = document.getElementById('slideshow');
-  slides = [];
+// Função para mostrar detalhes dos filmes do Firebase - CORRIGIDA
+function showFirebaseMovieDetails(movie) {
+  showLoading(true);
   
+  const details = document.getElementById('detailsContainer');
+  details.style.display = 'block';
+  document.getElementById('sectionsContainer').style.display = 'none';
+  document.getElementById('gridContainer').style.display = 'none';
+  document.getElementById('loadMoreContainer').style.display = 'none';
+  
+  // Usar valores padrão se não estiverem disponíveis
+  const title = movie.titulo || 'Título não disponível';
+  const year = movie.ano || 'N/A';
+  const imdb = movie.imdb || 'N/A';
+  const duration = movie.duração || 'N/A';
+  const quality = movie.hd || 'HD';
+  const description = movie.descrição || 'Descrição não disponível.';
+  const cover = movie.capa || 'https://via.placeholder.com/300x450/333/fff?text=Imagem+Não+Disponível';
+  
+  details.innerHTML = `
+    <div style="max-width:1200px; margin:0 auto;">
+      <div style="display:flex; gap:30px; margin-bottom:30px; flex-wrap:wrap;">
+        <img src="${cover}" 
+             alt="${title}"
+             style="width:300px; height:450px; object-fit:cover; border-radius:var(--radius); border:2px solid var(--accent);"
+             loading="lazy"
+             onerror="this.src='https://via.placeholder.com/300x450/333/fff?text=Imagem+Não+Disponível'">
+        
+        <div style="flex:1; min-width:300px;">
+          <h1 style="font-size:32px; margin:0 0 10px 0; color:var(--text);">${title}</h1>
+          
+          <div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap;">
+            <span style="background:var(--accent); color:white; padding:6px 12px; border-radius:20px; font-size:14px; font-weight:600;">
+              ${year}
+            </span>
+            <span style="background:var(--surface-2); color:var(--text); padding:6px 12px; border-radius:20px; font-size:14px; font-weight:600;">
+              ${imdb}
+            </span>
+            <span style="background:var(--surface-2); color:var(--text); padding:6px 12px; border-radius:20px; font-size:14px; font-weight:600;">
+              ${duration}
+            </span>
+            <span style="background:var(--accent-2); color:white; padding:6px 12px; border-radius:20px; font-size:14px; font-weight:600;">
+              ${quality}
+            </span>
+          </div>
+          
+          <div style="margin-bottom:25px;">
+            <strong style="color:var(--muted); display:block; margin-bottom:8px;">Sinopse:</strong>
+            <p style="line-height:1.6; color:var(--text); font-size:16px;">
+              ${description}
+            </p>
+          </div>
+          
+          <div class="button-group" style="display:flex; gap:15px; flex-wrap:wrap;">
+            <button class="button-primary" onclick="openFirebasePlayer('${movie.player || ''}', '${title.replace(/'/g, "\\'")}')">
+              <i class="fas fa-play"></i> Assistir Agora
+            </button>
+            <button class="button-primary" style="background:var(--surface-2); color:var(--text);" onclick="addFirebaseToFavorites('${movie.id}', '${title.replace(/'/g, "\\'")}')">
+              <i class="fas fa-heart"></i> Favoritar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  showLoading(false);
+}
+
+// Função para abrir player de filmes do Firebase - CORRIGIDA
+function openFirebasePlayer(playerUrl, title) {
+  if (!playerUrl) {
+    showNotification('Player não disponível para este filme.');
+    return;
+  }
+  
+  const modal = document.getElementById('playerModal');
+  const options = document.getElementById('playerOptions');
+  const downloadOptions = document.getElementById('downloadOptions');
+  const header = document.querySelector('.player-header h2');
+  
+  if (title) {
+    header.textContent = `Assistir: ${title}`;
+  }
+  
+  options.innerHTML = '';
+  downloadOptions.innerHTML = '';
+  downloadOptions.style.display = 'none';
+  
+  const playerOptions = [
+    { 
+      name: 'PlayerFlix', 
+      icon: 'fa-play-circle',
+      action: () => loadFirebasePlayerFlix(playerUrl)
+    }
+  ];
+  
+  playerOptions.forEach((option, index) => {
+    const button = document.createElement('button');
+    button.className = 'player-option';
+    if (index === 0) {
+      button.classList.add('active');
+      currentPlayer = 'playerflix';
+    }
+    
+    button.innerHTML = `
+      <i class="fas ${option.icon}"></i>
+      ${option.name}
+    `;
+    
+    button.onclick = () => {
+      document.querySelectorAll('.player-option').forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+      option.action();
+    };
+    
+    options.appendChild(button);
+  });
+  
+  loadFirebasePlayerFlix(playerUrl);
+  modal.style.display = 'flex';
+}
+
+function loadFirebasePlayerFlix(playerUrl) {
+  currentPlayer = 'playerflix';
+  const iframe = document.getElementById('playerIframe');
+  
+  // Verificar se é um URL válido antes de carregar
+  if (playerUrl && playerUrl.startsWith('http')) {
+    iframe.src = playerUrl;
+    iframe.style.display = 'block';
+  } else {
+    // Se não for um URL válido, mostrar mensagem de erro
+    iframe.style.display = 'none';
+    showNotification('URL do player inválido ou não disponível.');
+  }
+  
+  document.getElementById('downloadOptions').style.display = 'none';
+}
+
+// Função para adicionar filmes do Firebase aos favoritos
+function addFirebaseToFavorites(id, title) {
+  let favorites = JSON.parse(localStorage.getItem('angoflix_favorites')) || [];
+  
+  const existingIndex = favorites.findIndex(fav => fav.id === id && fav.type === 'firebase');
+  
+  if (existingIndex > -1) {
+    favorites.splice(existingIndex, 1);
+    showNotification('Removido dos favoritos!');
+  } else {
+    favorites.push({ id, type: 'firebase', title, addedAt: new Date().toISOString() });
+    showNotification('Adicionado aos favoritos!');
+  }
+  
+  localStorage.setItem('angoflix_favorites', JSON.stringify(favorites));
+}
+
+// Resto do código permanece igual...
+// [O resto do código JavaScript permanece inalterado]
+
+// Slideshow functions
+async function loadSlideshow() {
   try {
-    const res = await fetch(`${BASE_URL}movie/popular?api_key=${API_KEY}&language=pt-BR`);
-    const data = await res.json();
+    const response = await fetch(`${BASE_URL}trending/movie/week?api_key=${API_KEY}&language=pt-BR`);
+    const data = await response.json();
     
-    // Limpar slides existentes
-    slideDiv.querySelectorAll('.slide').forEach(s => s.remove());
+    slides = data.results.slice(0, 5);
+    const slideshow = document.getElementById('slideshow');
     
-    // Adicionar novos slides
-    data.results.slice(0, 5).forEach((item, i) => {
-      const img = document.createElement('img');
-      img.src = item.backdrop_path ? BACKDROP_URL + item.backdrop_path : 'https://via.placeholder.com/1280x720/333/fff?text=AngoFlix';
-      img.className = 'slide';
-      img.alt = item.title;
+    slides.forEach((movie, index) => {
+      const slide = document.createElement('img');
+      slide.className = 'slide';
+      slide.src = `${BACKDROP_URL}${movie.backdrop_path}`;
+      slide.alt = movie.title;
+      slide.onerror = function() {
+        this.src = 'https://via.placeholder.com/800x450/333/fff?text=Imagem+Não+Disponível';
+      };
       
-      if (i === 0) img.classList.add('active');
+      if (index === 0) {
+        slide.classList.add('active');
+      }
       
-      slideDiv.appendChild(img);
-      slides.push(img);
+      slideshow.appendChild(slide);
     });
     
-    slideIndex = 0;
+    // Auto slide change
+    setInterval(() => changeSlide(1), 5000);
     
   } catch (error) {
     console.error('Erro ao carregar slideshow:', error);
   }
 }
 
-function changeSlide(n) {
-  if (slides.length === 0) return;
+function changeSlide(direction) {
+  const allSlides = document.querySelectorAll('.slide');
   
-  slides[slideIndex].classList.remove('active');
-  slideIndex = (slideIndex + n + slides.length) % slides.length;
-  slides[slideIndex].classList.add('active');
+  if (allSlides.length === 0) return;
+  
+  allSlides[slideIndex].classList.remove('active');
+  
+  slideIndex += direction;
+  
+  if (slideIndex >= allSlides.length) {
+    slideIndex = 0;
+  } else if (slideIndex < 0) {
+    slideIndex = allSlides.length - 1;
+  }
+  
+  allSlides[slideIndex].classList.add('active');
 }
 
+// Top 10 functions
 async function loadTop10(type, title) {
-  const sections = document.getElementById('sectionsContainer');
-  
-  const sectionDiv = document.createElement('div');
-  sectionDiv.className = 'top10';
-  sectionDiv.innerHTML = `
-    <div class="top10-header">
-      <h3>${title}</h3>
-    </div>
-    <div class="top10-list" id="top10-${type}"></div>
-  `;
-  
-  sections.appendChild(sectionDiv);
-  
   try {
-    const res = await fetch(`${BASE_URL}${type}/popular?api_key=${API_KEY}&language=pt-BR&page=1`);
-    const data = await res.json();
+    const response = await fetch(`${BASE_URL}trending/${type}/week?api_key=${API_KEY}&language=pt-BR`);
+    const data = await response.json();
     
-    const list = document.getElementById(`top10-${type}`);
+    const top10 = data.results.slice(0, 10);
+    const sections = document.getElementById('sectionsContainer');
     
-    data.results.slice(0, 10).forEach((item, index) => {
+    const top10Section = document.createElement('div');
+    top10Section.className = 'top10';
+    
+    top10Section.innerHTML = `
+      <div class="top10-header">
+        <h3>${title}</h3>
+        <div class="tabs">
+          <button class="tab" aria-selected="true" onclick="switchTop10('movie', 'Top 10 Filmes')">Filmes</button>
+          <button class="tab" aria-selected="false" onclick="switchTop10('tv', 'Top 10 Séries')">Séries</button>
+        </div>
+      </div>
+      <div class="top10-list" id="top10-list"></div>
+    `;
+    
+    sections.appendChild(top10Section);
+    
+    const list = document.getElementById('top10-list');
+    
+    top10.forEach((item, index) => {
       const itemDiv = document.createElement('div');
       itemDiv.className = 'item';
       
       itemDiv.innerHTML = `
         <div class="poster-wrap">
-          <div class="rank-badge rank-${index + 1}">${index + 1}</div>
-          <img src="${item.poster_path ? IMAGE_URL + item.poster_path : 'https://via.placeholder.com/300x450/333/fff?text=Sem+Imagem'}" 
+          <img src="${IMAGE_URL}${item.poster_path}" 
                alt="${type === 'movie' ? item.title : item.name}"
-               loading="lazy">
+               loading="lazy"
+               onerror="this.src='https://via.placeholder.com/300x450/333/fff?text=Imagem+Não+Disponível'">
+          <div class="rank-badge rank-${index + 1}">${index + 1}</div>
           <div class="overlay">
-            <button class="overlay-play" onclick="event.stopPropagation(); openPlayerModal(${item.id}, '${type}', '${(type === 'movie' ? item.title : item.name).replace(/'/g, "\\'")}')">
+            <button class="overlay-play" onclick="openPlayer(${item.id}, '${type}', '${(type === 'movie' ? item.title : item.name).replace(/'/g, "\\'")}')">
               <i class="fas fa-play"></i>
             </button>
           </div>
         </div>
-        <div class="card-title">${type === 'movie' ? item.title : item.name}</div>
+        <div style="margin-top:10px; text-align:center;">
+          <div style="font-size:14px; font-weight:600;">${type === 'movie' ? item.title : item.name}</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:4px;">⭐ ${item.vote_average.toFixed(1)}</div>
+        </div>
       `;
       
       itemDiv.onclick = () => showDetails(item.id, type);
@@ -1154,37 +1521,51 @@ async function loadTop10(type, title) {
     });
     
   } catch (error) {
-    console.error(`Erro ao carregar Top 10 ${type}:`, error);
+    console.error('Erro ao carregar Top 10:', error);
   }
 }
 
+function switchTop10(type, title) {
+  const top10Section = document.querySelector('.top10');
+  if (top10Section) {
+    top10Section.remove();
+  }
+  loadTop10(type, title);
+}
+
+// Popular sections
 async function loadPopularSection(type, title) {
-  const sections = document.getElementById('sectionsContainer');
-  
-  const sectionDiv = document.createElement('div');
-  sectionDiv.innerHTML = `
-    <h3 class="section-title">${title}</h3>
-    <div class="horizontal-list" id="popular-${type}"></div>
-  `;
-  
-  sections.appendChild(sectionDiv);
-  
   try {
-    const res = await fetch(`${BASE_URL}${type}/popular?api_key=${API_KEY}&language=pt-BR&page=1`);
-    const data = await res.json();
+    const response = await fetch(`${BASE_URL}${type}/popular?api_key=${API_KEY}&language=pt-BR&page=1`);
+    const data = await response.json();
+    
+    const popularItems = data.results.slice(0, 10);
+    const sections = document.getElementById('sectionsContainer');
+    
+    const sectionDiv = document.createElement('div');
+    sectionDiv.innerHTML = `
+      <h3 class="section-title">${title}</h3>
+      <div class="horizontal-list" id="popular-${type}"></div>
+    `;
+    
+    sections.appendChild(sectionDiv);
     
     const list = document.getElementById(`popular-${type}`);
     
-    data.results.slice(0, 10).forEach(item => {
+    popularItems.forEach(item => {
       const itemDiv = document.createElement('div');
       itemDiv.className = 'item';
       
       itemDiv.innerHTML = `
-        <img src="${item.poster_path ? IMAGE_URL + item.poster_path : 'https://via.placeholder.com/300x450/333/fff?text=Sem+Imagem'}" 
+        <img src="${IMAGE_URL}${item.poster_path}" 
              alt="${type === 'movie' ? item.title : item.name}"
-             loading="lazy">
+             loading="lazy"
+             onerror="this.src='https://via.placeholder.com/300x450/333/fff?text=Imagem+Não+Disponível'">
         <div style="font-size:13px; text-align:center; margin-top:8px; font-weight:600;">
           ${type === 'movie' ? item.title : item.name}
+        </div>
+        <div style="font-size:11px; text-align:center; color:var(--muted); margin-top:4px;">
+          ⭐ ${item.vote_average.toFixed(1)}
         </div>
       `;
       
@@ -1197,40 +1578,43 @@ async function loadPopularSection(type, title) {
   }
 }
 
+// Upcoming movies
 async function loadUpcomingMovies() {
-  const sections = document.getElementById('sectionsContainer');
-  
-  const sectionDiv = document.createElement('div');
-  sectionDiv.innerHTML = `
-    <h3 class="section-title">Próximos Lançamentos</h3>
-    <div class="horizontal-list" id="upcoming-movies"></div>
-  `;
-  
-  sections.appendChild(sectionDiv);
-  
   try {
-    const res = await fetch(`${BASE_URL}movie/upcoming?api_key=${API_KEY}&language=pt-BR&page=1`);
-    const data = await res.json();
+    const response = await fetch(`${BASE_URL}movie/upcoming?api_key=${API_KEY}&language=pt-BR&page=1`);
+    const data = await response.json();
+    
+    const upcomingMovies = data.results.slice(0, 10);
+    const sections = document.getElementById('sectionsContainer');
+    
+    const sectionDiv = document.createElement('div');
+    sectionDiv.innerHTML = `
+      <h3 class="section-title">Próximos Lançamentos</h3>
+      <div class="horizontal-list" id="upcoming-movies"></div>
+    `;
+    
+    sections.appendChild(sectionDiv);
     
     const list = document.getElementById('upcoming-movies');
     
-    data.results.slice(0, 10).forEach(item => {
+    upcomingMovies.forEach(movie => {
       const itemDiv = document.createElement('div');
       itemDiv.className = 'item';
       
       itemDiv.innerHTML = `
-        <img src="${item.poster_path ? IMAGE_URL + item.poster_path : 'https://via.placeholder.com/300x450/333/fff?text=Sem+Imagem'}" 
-             alt="${item.title}"
-             loading="lazy">
+        <img src="${IMAGE_URL}${movie.poster_path}" 
+             alt="${movie.title}"
+             loading="lazy"
+             onerror="this.src='https://via.placeholder.com/300x450/333/fff?text=Imagem+Não+Disponível'">
         <div style="font-size:13px; text-align:center; margin-top:8px; font-weight:600;">
-          ${item.title}
+          ${movie.title}
         </div>
         <div style="font-size:11px; text-align:center; color:var(--muted); margin-top:4px;">
-          ${item.release_date ? new Date(item.release_date).toLocaleDateString('pt-BR') : 'Em breve'}
+          ${movie.release_date ? new Date(movie.release_date).getFullYear() : 'Em breve'}
         </div>
       `;
       
-      itemDiv.onclick = () => showDetails(item.id, 'movie');
+      itemDiv.onclick = () => showDetails(movie.id, 'movie');
       list.appendChild(itemDiv);
     });
     
@@ -1239,243 +1623,227 @@ async function loadUpcomingMovies() {
   }
 }
 
-// Categorias
+// Show categories
 function showCategories() {
-  const grid = document.getElementById('gridContainer');
-  grid.style.display = 'grid';
-  grid.innerHTML = '';
+  const sections = document.getElementById('sectionsContainer');
+  sections.style.display = 'block';
+  sections.innerHTML = `
+    <h3 class="section-title">Categorias</h3>
+    <div class="grid-view" id="categories-grid"></div>
+  `;
   
-  const genres = [
-    { name: 'Ação', id: 28, icon: 'fa-fist-raised' },
-    { name: 'Aventura', id: 12, icon: 'fa-mountain' },
-    { name: 'Animação', id: 16, icon: 'fa-dragon' },
-    { name: 'Comédia', id: 35, icon: 'fa-laugh' },
-    { name: 'Crime', id: 80, icon: 'fa-user-secret' },
-    { name: 'Documentário', id: 99, icon: 'fa-camera' },
-    { name: 'Drama', id: 18, icon: 'fa-theater-masks' },
-    { name: 'Família', id: 10751, icon: 'fa-home' },
-    { name: 'Fantasia', id: 14, icon: 'fa-hat-wizard' },
-    { name: 'História', id: 36, icon: 'fa-landmark' },
-    { name: 'Terror', id: 27, icon: 'fa-ghost' },
-    { name: 'Música', id: 10402, icon: 'fa-music' },
-    { name: 'Mistério', id: 9648, icon: 'fa-search' },
-    { name: 'Romance', id: 10749, icon: 'fa-heart' },
-    { name: 'Ficção Científica', id: 878, icon: 'fa-rocket' },
-    { name: 'TV Movie', id: 10770, icon: 'fa-tv' },
-    { name: 'Thriller', id: 53, icon: 'fa-heartbeat' },
-    { name: 'Guerra', id: 10752, icon: 'fa-fighter-jet' },
-    { name: 'Faroeste', id: 37, icon: 'fa-hat-cowboy' }
+  const categories = [
+    { id: 28, name: 'Ação', icon: 'fa-gun' },
+    { id: 12, name: 'Aventura', icon: 'fa-mountain' },
+    { id: 16, name: 'Animação', icon: 'fa-film' },
+    { id: 35, name: 'Comédia', icon: 'fa-laugh' },
+    { id: 80, name: 'Crime', icon: 'fa-handcuffs' },
+    { id: 18, name: 'Drama', icon: 'fa-masks-theater' },
+    { id: 14, name: 'Fantasia', icon: 'fa-dragon' },
+    { id: 27, name: 'Terror', icon: 'fa-ghost' },
+    { id: 10749, name: 'Romance', icon: 'fa-heart' },
+    { id: 878, name: 'Ficção Científica', icon: 'fa-rocket' },
+    { id: 53, name: 'Thriller', icon: 'fa-user-secret' },
+    { id: 10752, name: 'Guerra', icon: 'fa-helmet-battle' }
   ];
   
-  genres.forEach(genre => {
+  const grid = document.getElementById('categories-grid');
+  
+  categories.forEach(category => {
     const card = document.createElement('div');
     card.className = 'card';
     card.innerHTML = `
       <div style="text-align:center; padding:20px;">
-        <i class="fas ${genre.icon}" style="font-size:32px; color:var(--accent); margin-bottom:12px;"></i>
-        <div class="card-title">${genre.name}</div>
+        <i class="fas ${category.icon}" style="font-size:40px; color:var(--accent); margin-bottom:15px;"></i>
+        <div class="card-title">${category.name}</div>
       </div>
     `;
     
-    card.onclick = () => loadGenre(genre.id, genre.name);
+    card.onclick = () => showCategory('movie', category.id, category.name);
     grid.appendChild(card);
   });
 }
 
-async function loadGenre(genreId, genreName) {
+// Show category content
+async function showCategory(type, genreId = '', genreName = '') {
+  const grid = document.getElementById('gridContainer');
+  const sections = document.getElementById('sectionsContainer');
+  
+  sections.style.display = 'none';
+  grid.style.display = 'grid';
+  grid.innerHTML = '';
+  
+  document.getElementById('loadMoreContainer').style.display = 'block';
+  
+  currentType = type;
   currentGenre = genreId;
   currentPage = 1;
-  currentType = 'genre';
   
-  const grid = document.getElementById('gridContainer');
-  grid.style.display = 'grid';
-  grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px;">Carregando...</div>';
+  showLoading(true);
   
   try {
-    const res = await fetch(`${BASE_URL}discover/movie?api_key=${API_KEY}&with_genres=${genreId}&language=pt-BR&page=1`);
-    const data = await res.json();
+    let url = `${BASE_URL}${type}/popular?api_key=${API_KEY}&language=pt-BR&page=${currentPage}`;
     
-    grid.innerHTML = '';
-    
-    if (data.results.length === 0) {
-      grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--muted);">Nenhum filme encontrado nesta categoria.</div>';
-      return;
+    if (genreId) {
+      url = `${BASE_URL}discover/${type}?api_key=${API_KEY}&language=pt-BR&with_genres=${genreId}&page=${currentPage}`;
     }
     
-    data.results.forEach(item => {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = `
-        <img src="${item.poster_path ? IMAGE_URL + item.poster_path : 'https://via.placeholder.com/300x450/333/fff?text=Sem+Imagem'}" 
-             alt="${item.title}"
-             loading="lazy">
-        <div class="card-title">${item.title}</div>
-        <div style="font-size:12px; text-align:center; color:var(--muted); margin-top:4px;">
-          ${item.release_date ? new Date(item.release_date).getFullYear() : 'N/A'}
-        </div>
-      `;
-      
-      card.onclick = () => showDetails(item.id, 'movie');
-      grid.appendChild(card);
-    });
+    const response = await fetch(url);
+    const data = await response.json();
     
-    // Mostrar botão "Carregar Mais" se houver mais páginas
-    if (data.total_pages > 1) {
-      document.getElementById('loadMoreContainer').style.display = 'block';
-      totalPages = data.total_pages;
-    }
+    totalPages = data.total_pages;
     
-  } catch (error) {
-    console.error('Erro ao carregar gênero:', error);
-    grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--accent);">Erro ao carregar conteúdo.</div>';
-  }
-}
-
-// Categoria (Filmes/Séries)
-function showCategory(type) {
-  currentType = type;
-  currentPage = 1;
-  
-  const grid = document.getElementById('gridContainer');
-  grid.style.display = 'grid';
-  grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px;">Carregando...</div>';
-  
-  loadCategoryPage(type, 1);
-}
-
-async function loadCategoryPage(type, page) {
-  try {
-    const res = await fetch(`${BASE_URL}${type}/popular?api_key=${API_KEY}&language=pt-BR&page=${page}`);
-    const data = await res.json();
-    
-    const grid = document.getElementById('gridContainer');
-    
-    if (page === 1) {
-      grid.innerHTML = '';
-    }
-    
-    data.results.forEach(item => {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = `
-        <img src="${item.poster_path ? IMAGE_URL + item.poster_path : 'https://via.placeholder.com/300x450/333/fff?text=Sem+Imagem'}" 
-             alt="${type === 'movie' ? item.title : item.name}"
-             loading="lazy">
-        <div class="card-title">${type === 'movie' ? item.title : item.name}</div>
-        <div style="font-size:12px; text-align:center; color:var(--muted); margin-top:4px;">
-          ${(type === 'movie' ? item.release_date : item.first_air_date) ? 
-            new Date(type === 'movie' ? item.release_date : item.first_air_date).getFullYear() : 'N/A'}
-        </div>
-      `;
-      
-      card.onclick = () => showDetails(item.id, type);
-      grid.appendChild(card);
-    });
-    
-    // Mostrar botão "Carregar Mais" se houver mais páginas
-    if (data.total_pages > page) {
-      document.getElementById('loadMoreContainer').style.display = 'block';
-      totalPages = data.total_pages;
-    } else {
-      document.getElementById('loadMoreContainer').style.display = 'none';
-    }
+    displayItemsInGrid(data.results, type);
     
   } catch (error) {
     console.error('Erro ao carregar categoria:', error);
+  } finally {
+    showLoading(false);
   }
 }
 
-// Busca
+// Display items in grid
+function displayItemsInGrid(items, type) {
+  const grid = document.getElementById('gridContainer');
+  
+  items.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    
+    card.innerHTML = `
+      <img src="${IMAGE_URL}${item.poster_path}" 
+           alt="${type === 'movie' ? item.title : item.name}"
+           loading="lazy"
+           onerror="this.src='https://via.placeholder.com/300x450/333/fff?text=Imagem+Não+Disponível'">
+      <div class="card-title">${type === 'movie' ? item.title : item.name}</div>
+      <div style="position:absolute; top:8px; right:8px; background:var(--accent); color:white; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:600;">
+        ⭐ ${item.vote_average ? item.vote_average.toFixed(1) : 'N/A'}
+      </div>
+    `;
+    
+    card.onclick = () => showDetails(item.id, type);
+    grid.appendChild(card);
+  });
+}
+
+// Load more function
+async function loadMore() {
+  if (currentPage >= totalPages) {
+    document.getElementById('loadMoreBtn').disabled = true;
+    document.getElementById('loadMoreBtn').textContent = 'Fim dos resultados';
+    return;
+  }
+  
+  currentPage++;
+  showLoading(true);
+  
+  try {
+    let url;
+    
+    if (currentQuery) {
+      url = `${BASE_URL}search/${currentType}?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(currentQuery)}&page=${currentPage}`;
+    } else if (currentGenre) {
+      url = `${BASE_URL}discover/${currentType}?api_key=${API_KEY}&language=pt-BR&with_genres=${currentGenre}&page=${currentPage}`;
+    } else {
+      url = `${BASE_URL}${currentType}/popular?api_key=${API_KEY}&language=pt-BR&page=${currentPage}`;
+    }
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    displayItemsInGrid(data.results, currentType);
+    
+  } catch (error) {
+    console.error('Erro ao carregar mais itens:', error);
+  } finally {
+    showLoading(false);
+  }
+}
+
+// Search function
 function searchItems() {
-  const input = document.getElementById('searchInput');
-  const query = input.value.trim();
+  const query = document.getElementById('searchInput').value.trim();
   
   if (!query) {
-    showNotification('Por favor, digite algo para pesquisar.');
+    showNotification('Digite algo para pesquisar!');
     return;
   }
   
   showSearch(query);
 }
 
-function showSearch(query) {
+async function showSearch(query) {
+  const grid = document.getElementById('gridContainer');
+  const sections = document.getElementById('sectionsContainer');
+  
+  sections.style.display = 'none';
+  grid.style.display = 'grid';
+  grid.innerHTML = '';
+  
+  document.getElementById('loadMoreContainer').style.display = 'block';
+  
   currentQuery = query;
   currentPage = 1;
-  currentType = 'search';
+  currentType = 'multi';
   
-  const grid = document.getElementById('gridContainer');
-  grid.style.display = 'grid';
-  grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px;">Buscando...</div>';
+  showLoading(true);
   
-  loadSearchResults(query, 1);
-}
-
-async function loadSearchResults(query, page) {
   try {
-    const res = await fetch(`${BASE_URL}search/multi?api_key=${API_KEY}&query=${encodeURIComponent(query)}&language=pt-BR&page=${page}`);
-    const data = await res.json();
+    const response = await fetch(`${BASE_URL}search/multi?api_key=${API_KEY}&language=pt-BR&query=${encodeURIComponent(query)}&page=${currentPage}`);
+    const data = await response.json();
     
-    const grid = document.getElementById('gridContainer');
-    
-    if (page === 1) {
-      grid.innerHTML = '';
-    }
+    totalPages = data.total_pages;
     
     // Filtrar apenas filmes e séries
-    const validResults = data.results.filter(item => 
+    const filteredResults = data.results.filter(item => 
       (item.media_type === 'movie' || item.media_type === 'tv') && item.poster_path
     );
     
-    if (validResults.length === 0 && page === 1) {
-      grid.innerHTML = `
-        <div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--muted);">
-          <i class="fas fa-search" style="font-size:48px; margin-bottom:16px;"></i>
-          <div>Nenhum resultado encontrado para "${query}"</div>
-        </div>
-      `;
-      return;
-    }
-    
-    validResults.forEach(item => {
-      const card = document.createElement('div');
-      card.className = 'card';
-      
-      const title = item.media_type === 'movie' ? item.title : item.name;
-      const year = item.media_type === 'movie' ? 
-        (item.release_date ? new Date(item.release_date).getFullYear() : 'N/A') :
-        (item.first_air_date ? new Date(item.first_air_date).getFullYear() : 'N/A');
-      
-      card.innerHTML = `
-        <img src="${item.poster_path ? IMAGE_URL + item.poster_path : 'https://via.placeholder.com/300x450/333/fff?text=Sem+Imagem'}" 
-             alt="${title}"
-             loading="lazy">
-        <div class="card-title">${title}</div>
-        <div style="font-size:11px; text-align:center; color:var(--muted); margin-top:4px;">
-          <span style="background:var(--accent); color:white; padding:2px 6px; border-radius:4px; font-weight:600;">
-            ${item.media_type === 'movie' ? 'FILME' : 'SÉRIE'}
-          </span>
-          ${year !== 'N/A' ? ` • ${year}` : ''}
-        </div>
-      `;
-      
-      card.onclick = () => showDetails(item.id, item.media_type);
-      grid.appendChild(card);
-    });
-    
-    // Mostrar botão "Carregar Mais" se houver mais páginas
-    if (data.total_pages > page) {
-      document.getElementById('loadMoreContainer').style.display = 'block';
-      totalPages = data.total_pages;
-    } else {
-      document.getElementById('loadMoreContainer').style.display = 'none';
-    }
+    displaySearchResultsInGrid(filteredResults);
     
   } catch (error) {
-    console.error('Erro na busca:', error);
+    console.error('Erro na pesquisa:', error);
+  } finally {
+    showLoading(false);
   }
 }
 
-// Detalhes
+function displaySearchResultsInGrid(items) {
+  const grid = document.getElementById('gridContainer');
+  
+  if (items.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--muted);">
+        <i class="fas fa-search" style="font-size:48px; margin-bottom:20px;"></i>
+        <div>Nenhum resultado encontrado para "${currentQuery}"</div>
+      </div>
+    `;
+    document.getElementById('loadMoreContainer').style.display = 'none';
+    return;
+  }
+  
+  items.forEach(item => {
+    const type = item.media_type || currentType;
+    const card = document.createElement('div');
+    card.className = 'card';
+    
+    card.innerHTML = `
+      <img src="${IMAGE_URL}${item.poster_path}" 
+           alt="${type === 'movie' ? item.title : item.name}"
+           loading="lazy"
+           onerror="this.src='https://via.placeholder.com/300x450/333/fff?text=Imagem+Não+Disponível'">
+      <div class="card-title">${type === 'movie' ? item.title : item.name}</div>
+      <div style="position:absolute; top:8px; right:8px; background:var(--accent); color:white; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:600;">
+        ${type === 'movie' ? '🎬' : '📺'}
+      </div>
+    `;
+    
+    card.onclick = () => showDetails(item.id, type);
+    grid.appendChild(card);
+  });
+}
+
+// Show details function
 async function showDetails(id, type) {
   showLoading(true);
   
@@ -1486,67 +1854,47 @@ async function showDetails(id, type) {
   document.getElementById('loadMoreContainer').style.display = 'none';
   
   try {
-    // Buscar detalhes principais
-    const detailsRes = await fetch(`${BASE_URL}${type}/${id}?api_key=${API_KEY}&language=pt-BR`);
-    const data = await detailsRes.json();
+    const response = await fetch(`${BASE_URL}${type}/${id}?api_key=${API_KEY}&language=pt-BR&append_to_response=videos`);
+    const data = await response.json();
     
-    // Buscar elenco
-    const castRes = await fetch(`${BASE_URL}${type}/${id}/credits?api_key=${API_KEY}&language=pt-BR`);
-    const castData = await castRes.json();
+    currentItemId = id;
+    currentItemType = type;
+    currentTitle = type === 'movie' ? data.title : data.name;
     
-    // Buscar trailers
-    const trailerRes = await fetch(`${BASE_URL}${type}/${id}/videos?api_key=${API_KEY}&language=pt-BR`);
-    const trailerData = await trailerRes.json();
-    
-    // Buscar conteúdo similar
-    const similarRes = await fetch(`${BASE_URL}${type}/${id}/similar?api_key=${API_KEY}&language=pt-BR&page=1`);
-    const similarData = await similarRes.json();
-    
-    const title = type === 'movie' ? data.title : data.name;
-    const releaseDate = type === 'movie' ? data.release_date : data.first_air_date;
-    const year = releaseDate ? new Date(releaseDate).getFullYear() : 'N/A';
-    const duration = type === 'movie' ? 
-      (data.runtime ? `${Math.floor(data.runtime / 60)}h ${data.runtime % 60}m` : 'N/A') :
-      (data.number_of_seasons ? `${data.number_of_seasons} temporada${data.number_of_seasons > 1 ? 's' : ''}` : 'N/A');
-    
-    const trailer = trailerData.results.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+    const trailer = data.videos?.results?.find(video => 
+      video.type === 'Trailer' && video.site === 'YouTube'
+    );
     
     details.innerHTML = `
       <div style="max-width:1200px; margin:0 auto;">
-        <!-- Cabeçalho -->
         <div style="display:flex; gap:30px; margin-bottom:30px; flex-wrap:wrap;">
-          <img src="${data.poster_path ? IMAGE_URL + data.poster_path : 'https://via.placeholder.com/300x450/333/fff?text=Sem+Imagem'}" 
-               alt="${title}"
+          <img src="${IMAGE_URL}${data.poster_path}" 
+               alt="${currentTitle}"
                style="width:300px; height:450px; object-fit:cover; border-radius:var(--radius); border:2px solid var(--accent);"
-               loading="lazy">
+               loading="lazy"
+               onerror="this.src='https://via.placeholder.com/300x450/333/fff?text=Imagem+Não+Disponível'">
           
           <div style="flex:1; min-width:300px;">
-            <h1 style="font-size:32px; margin:0 0 10px 0; color:var(--text);">${title}</h1>
+            <h1 style="font-size:32px; margin:0 0 10px 0; color:var(--text);">${currentTitle}</h1>
             
             <div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap;">
               <span style="background:var(--accent); color:white; padding:6px 12px; border-radius:20px; font-size:14px; font-weight:600;">
-                ${year}
+                ${type === 'movie' ? data.release_date?.substring(0,4) : data.first_air_date?.substring(0,4)}
               </span>
               <span style="background:var(--surface-2); color:var(--text); padding:6px 12px; border-radius:20px; font-size:14px; font-weight:600;">
                 ⭐ ${data.vote_average ? data.vote_average.toFixed(1) : 'N/A'}
               </span>
-              <span style="background:var(--surface-2); color:var(--text); padding:6px 12px; border-radius:20px; font-size:14px; font-weight:600;">
-                ${duration}
-              </span>
+              ${data.runtime ? `
+                <span style="background:var(--surface-2); color:var(--text); padding:6px 12px; border-radius:20px; font-size:14px; font-weight:600;">
+                  ${Math.floor(data.runtime / 60)}h ${data.runtime % 60}min
+                </span>
+              ` : ''}
+              ${data.genres ? `
+                <span style="background:var(--accent-2); color:white; padding:6px 12px; border-radius:20px; font-size:14px; font-weight:600;">
+                  ${data.genres[0]?.name}
+                </span>
+              ` : ''}
             </div>
-            
-            ${data.genres && data.genres.length > 0 ? `
-              <div style="margin-bottom:20px;">
-                <strong style="color:var(--muted);">Gêneros:</strong>
-                <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
-                  ${data.genres.map(genre => `
-                    <span style="background:var(--surface); color:var(--text); padding:6px 12px; border-radius:15px; font-size:13px;">
-                      ${genre.name}
-                    </span>
-                  `).join('')}
-                </div>
-              </div>
-            ` : ''}
             
             <div style="margin-bottom:25px;">
               <strong style="color:var(--muted); display:block; margin-bottom:8px;">Sinopse:</strong>
@@ -1556,58 +1904,29 @@ async function showDetails(id, type) {
             </div>
             
             <div class="button-group" style="display:flex; gap:15px; flex-wrap:wrap;">
-              <button class="button-primary" onclick="openPlayerModal(${id}, '${type}', '${title.replace(/'/g, "\\'")}')">
+              <button class="button-primary" onclick="openPlayer(${id}, '${type}', '${currentTitle.replace(/'/g, "\\'")}')">
                 <i class="fas fa-play"></i> Assistir Agora
               </button>
               ${trailer ? `
-                <button class="button-primary" style="background:var(--accent-2);" onclick="openTrailer('${trailer.key}')">
+                <button class="button-primary" style="background:var(--surface-2); color:var(--text);" onclick="openTrailer('${trailer.key}')">
                   <i class="fas fa-play-circle"></i> Ver Trailer
                 </button>
               ` : ''}
-              <button class="button-primary" style="background:var(--surface-2); color:var(--text);" onclick="addToFavorites(${id}, '${type}', '${title.replace(/'/g, "\\'")}')">
+              <button class="button-primary" style="background:var(--surface-2); color:var(--text);" onclick="addToFavorites(${id}, '${type}', '${currentTitle.replace(/'/g, "\\'")}')">
                 <i class="fas fa-heart"></i> Favoritar
               </button>
             </div>
           </div>
         </div>
         
-        <!-- Elenco -->
-        ${castData.cast && castData.cast.length > 0 ? `
-          <div style="margin-bottom:40px;">
-            <h2 style="font-size:24px; margin-bottom:20px; color:var(--text); border-left:4px solid var(--accent); padding-left:12px;">
-              Elenco Principal
-            </h2>
-            <div class="horizontal-list">
-              ${castData.cast.slice(0, 10).map(actor => `
-                <div class="item" style="text-align:center;">
-                  <img src="${actor.profile_path ? IMAGE_URL + actor.profile_path : 'https://via.placeholder.com/150x150/333/fff?text=?'}" 
-                       alt="${actor.name}"
-                       style="width:100px; height:100px; object-fit:cover; border-radius:50%; border:2px solid var(--accent);"
-                       loading="lazy">
-                  <div style="margin-top:8px; font-size:13px; font-weight:600;">${actor.name}</div>
-                  <div style="font-size:12px; color:var(--muted);">${actor.character || 'Ator'}</div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        ` : ''}
-        
-        <!-- Conteúdo Similar -->
-        ${similarData.results && similarData.results.length > 0 ? `
-          <div>
-            <h2 style="font-size:24px; margin-bottom:20px; color:var(--text); border-left:4px solid var(--accent); padding-left:12px;">
-              Você Também Pode Gostar
-            </h2>
-            <div class="horizontal-list">
-              ${similarData.results.slice(0, 10).map(item => `
-                <div class="item" onclick="showDetails(${item.id}, '${type}')">
-                  <img src="${item.poster_path ? IMAGE_URL + item.poster_path : 'https://via.placeholder.com/300x450/333/fff?text=Sem+Imagem'}" 
-                       alt="${type === 'movie' ? item.title : item.name}"
-                       loading="lazy">
-                  <div style="font-size:13px; text-align:center; margin-top:8px; font-weight:600;">
-                    ${type === 'movie' ? item.title : item.name}
-                  </div>
-                </div>
+        ${data.genres && data.genres.length > 0 ? `
+          <div style="margin-bottom:20px;">
+            <strong style="color:var(--muted); display:block; margin-bottom:8px;">Gêneros:</strong>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              ${data.genres.map(genre => `
+                <span style="background:var(--surface-2); color:var(--text); padding:8px 16px; border-radius:20px; font-size:14px;">
+                  ${genre.name}
+                </span>
               `).join('')}
             </div>
           </div>
@@ -1619,7 +1938,7 @@ async function showDetails(id, type) {
     console.error('Erro ao carregar detalhes:', error);
     details.innerHTML = `
       <div style="text-align:center; padding:40px; color:var(--muted);">
-        <i class="fas fa-exclamation-triangle" style="font-size:48px; margin-bottom:16px;"></i>
+        <i class="fas fa-exclamation-triangle" style="font-size:48px; margin-bottom:20px;"></i>
         <div>Erro ao carregar detalhes. Tente novamente.</div>
       </div>
     `;
@@ -1628,212 +1947,221 @@ async function showDetails(id, type) {
   }
 }
 
-// =============================================
-// SISTEMA DE PLAYERS ATUALIZADO - OPÇÃO 1
-// =============================================
-
-function openPlayerModal(id, type, title = '') {
-    currentItemId = id;
-    currentItemType = type;
-    currentTitle = title;
-    
-    const modal = document.getElementById('playerModal');
-    const options = document.getElementById('playerOptions');
-    const downloadOptions = document.getElementById('downloadOptions');
-    const header = document.querySelector('.player-header h2');
-    
-    // Atualizar título do player
-    if (title) {
-        header.textContent = `Assistir: ${title}`;
+// Player functions
+function openPlayer(id, type, title) {
+  const modal = document.getElementById('playerModal');
+  const options = document.getElementById('playerOptions');
+  const downloadOptions = document.getElementById('downloadOptions');
+  const header = document.querySelector('.player-header h2');
+  
+  currentItemId = id;
+  currentItemType = type;
+  currentTitle = title;
+  
+  if (title) {
+    header.textContent = `Assistir: ${title}`;
+  }
+  
+  options.innerHTML = '';
+  downloadOptions.innerHTML = '';
+  downloadOptions.style.display = 'none';
+  
+  const playerOptions = [
+    { 
+      name: 'PlayerFlix', 
+      icon: 'fa-play-circle',
+      action: () => loadPlayerFlix()
+    },
+    { 
+      name: 'Vídeos Online', 
+      icon: 'fa-cloud',
+      action: () => loadOnlineVideos()
+    }
+  ];
+  
+  playerOptions.forEach((option, index) => {
+    const button = document.createElement('button');
+    button.className = 'player-option';
+    if (index === 0) {
+      button.classList.add('active');
+      currentPlayer = 'playerflix';
     }
     
-    // Limpar opções anteriores
-    options.innerHTML = '';
-    downloadOptions.innerHTML = '';
-    downloadOptions.style.display = 'none';
-    
-    // OPÇÕES DE PLAYER MAIS RÁPIDAS E EFICIENTES
-    const playerOptions = [
-        { 
-            name: '⚡ Player Rápido', 
-            icon: 'fa-bolt',
-            action: () => loadDirectPlayer(id, type)
-        },
-        { 
-            name: '🎬 Player Principal', 
-            icon: 'fa-play-circle',
-            action: () => loadMainPlayer(id, type)
-        },
-        { 
-            name: '📺 Player Alternativo', 
-            icon: 'fa-tv',
-            action: () => loadAlternativePlayer(id, type)
-        },
-        { 
-            name: '⬇️ Download', 
-            icon: 'fa-download',
-            action: () => showDownloadOptions(id, type)
-        }
-    ];
-    
-    playerOptions.forEach((option, index) => {
-        const button = document.createElement('button');
-        button.className = 'player-option';
-        if (index === 0) {
-            button.classList.add('active');
-            currentPlayer = 'direct';
-        }
-        
-        button.innerHTML = `
-            <i class="fas ${option.icon}"></i>
-            ${option.name}
-        `;
-        
-        button.onclick = () => {
-            document.querySelectorAll('.player-option').forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-            option.action();
-        };
-        
-        options.appendChild(button);
-    });
-    
-    // Carregar player padrão (mais rápido)
-    loadDirectPlayer(id, type);
-    modal.style.display = 'flex';
-}
-
-// PLAYER 1: Mais Rápido
-function loadDirectPlayer(id, type) {
-    currentPlayer = 'direct';
-    const iframe = document.getElementById('playerIframe');
-    
-    // Player mais rápido e limpo
-    const playerUrl = `https://vidsrc.to/embed/${type === 'movie' ? 'movie' : 'tv'}/${id}`;
-    
-    iframe.src = playerUrl;
-    iframe.style.display = 'block';
-    document.getElementById('downloadOptions').style.display = 'none';
-    
-    showNotification('⚡ Carregando player rápido...');
-}
-
-// PLAYER 2: Principal
-function loadMainPlayer(id, type) {
-    currentPlayer = 'main';
-    const iframe = document.getElementById('playerIframe');
-    
-    // Player principal alternativo
-    const playerUrl = type === 'movie' ? 
-        `https://www.2embed.cc/embed/${id}` :
-        `https://www.2embed.cc/embedtv/${id}`;
-    
-    iframe.src = playerUrl;
-    iframe.style.display = 'block';
-    document.getElementById('downloadOptions').style.display = 'none';
-    
-    showNotification('🎬 Carregando player principal...');
-}
-
-// PLAYER 3: Alternativo
-function loadAlternativePlayer(id, type) {
-    currentPlayer = 'alternative';
-    const iframe = document.getElementById('playerIframe');
-    
-    // Player alternativo
-    const playerUrl = type === 'movie' ? 
-        `https://embed.smashy.stream/movie/${id}` :
-        `https://embed.smashy.stream/tv/${id}/1/1`;
-    
-    iframe.src = playerUrl;
-    iframe.style.display = 'block';
-    document.getElementById('downloadOptions').style.display = 'none';
-    
-    showNotification('📺 Carregando player alternativo...');
-}
-
-function showDownloadOptions(id, type) {
-    currentPlayer = 'download';
-    const iframe = document.getElementById('playerIframe');
-    const downloadOptions = document.getElementById('downloadOptions');
-    
-    // Esconder iframe do player
-    iframe.style.display = 'none';
-    
-    // Mostrar opções de download
-    downloadOptions.style.display = 'block';
-    downloadOptions.innerHTML = `
-        <h3 style="margin-top:0; margin-bottom:15px; text-align:center; color:var(--text);">
-            <i class="fas fa-download"></i> Opções de Download
-        </h3>
-        <div class="download-option">
-            <div>
-                <div style="font-weight:600; margin-bottom:5px;">Qualidade HD 1080p</div>
-                <div style="font-size:12px; color:var(--muted);">Tamanho aproximado: 2.5GB</div>
-            </div>
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span class="download-quality">1080p</span>
-                <button class="download-btn" onclick="showDownloadMessage('1080p')">
-                    <i class="fas fa-download"></i> Baixar
-                </button>
-            </div>
-        </div>
-        <div class="download-option">
-            <div>
-                <div style="font-weight:600; margin-bottom:5px;">Qualidade HD 720p</div>
-                <div style="font-size:12px; color:var(--muted);">Tamanho aproximado: 1.5GB</div>
-            </div>
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span class="download-quality">720p</span>
-                <button class="download-btn" onclick="showDownloadMessage('720p')">
-                    <i class="fas fa-download"></i> Baixar
-                </button>
-            </div>
-        </div>
-        <div class="download-option">
-            <div>
-                <div style="font-weight:600; margin-bottom:5px;">Qualidade SD 480p</div>
-                <div style="font-size:12px; color:var(--muted);">Tamanho aproximado: 800MB</div>
-            </div>
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span class="download-quality">480p</span>
-                <button class="download-btn" onclick="showDownloadMessage('480p')">
-                    <i class="fas fa-download"></i> Baixar
-                </button>
-            </div>
-        </div>
-        <div style="margin-top:15px; padding:10px; background:var(--surface-2); border-radius:var(--radius-sm); font-size:12px; text-align:center; color:var(--muted);">
-            <i class="fas fa-info-circle"></i> Os downloads podem demorar dependendo da sua conexão
-        </div>
+    button.innerHTML = `
+      <i class="fas ${option.icon}"></i>
+      ${option.name}
     `;
+    
+    button.onclick = () => {
+      document.querySelectorAll('.player-option').forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+      option.action();
+    };
+    
+    options.appendChild(button);
+  });
+  
+  loadPlayerFlix();
+  modal.style.display = 'flex';
 }
 
-function showDownloadMessage(quality) {
-    showNotification(`Download em ${quality} iniciado! O arquivo será salvo em seus downloads.`);
+function loadPlayerFlix() {
+  currentPlayer = 'playerflix';
+  const iframe = document.getElementById('playerIframe');
+  
+  // Simulação de player - na implementação real, você usaria uma URL real
+  const playerUrl = `https://vidsrc.to/embed/${currentItemType}/${currentItemId}`;
+  
+  iframe.src = playerUrl;
+  iframe.style.display = 'block';
+  
+  document.getElementById('downloadOptions').style.display = 'none';
+}
+
+function loadOnlineVideos() {
+  currentPlayer = 'online';
+  const iframe = document.getElementById('playerIframe');
+  const downloadOptions = document.getElementById('downloadOptions');
+  
+  // Simulação de player online
+  const playerUrl = `https://www.2embed.cc/embed/${currentItemType}/${currentItemId}`;
+  
+  iframe.src = playerUrl;
+  iframe.style.display = 'block';
+  
+  // Simular opções de download
+  downloadOptions.innerHTML = `
+    <h4 style="margin:0 0 15px 0; color:var(--text);">Opções de Download</h4>
+    <div class="download-option">
+      <div>
+        <div style="font-weight:600; margin-bottom:4px;">Qualidade HD</div>
+        <div style="font-size:12px; color:var(--muted);">720p - 1.2GB</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="download-quality">HD</span>
+        <button class="download-btn" onclick="downloadFile('${currentTitle}', 'hd')">
+          <i class="fas fa-download"></i> Download
+        </button>
+      </div>
+    </div>
+    <div class="download-option">
+      <div>
+        <div style="font-weight:600; margin-bottom:4px;">Qualidade Full HD</div>
+        <div style="font-size:12px; color:var(--muted);">1080p - 2.5GB</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="download-quality">Full HD</span>
+        <button class="download-btn" onclick="downloadFile('${currentTitle}', 'fullhd')">
+          <i class="fas fa-download"></i> Download
+        </button>
+      </div>
+    </div>
+  `;
+  
+  downloadOptions.style.display = 'block';
+}
+
+function openTrailer(youtubeKey) {
+  const modal = document.getElementById('playerModal');
+  const options = document.getElementById('playerOptions');
+  const downloadOptions = document.getElementById('downloadOptions');
+  const header = document.querySelector('.player-header h2');
+  
+  header.textContent = `Trailer: ${currentTitle}`;
+  
+  options.innerHTML = '';
+  downloadOptions.innerHTML = '';
+  downloadOptions.style.display = 'none';
+  
+  const iframe = document.getElementById('playerIframe');
+  iframe.src = `https://www.youtube.com/embed/${youtubeKey}?autoplay=1`;
+  iframe.style.display = 'block';
+  
+  modal.style.display = 'flex';
 }
 
 function closePlayer() {
-    const modal = document.getElementById('playerModal');
-    const iframe = document.getElementById('playerIframe');
-    const downloadOptions = document.getElementById('downloadOptions');
+  const modal = document.getElementById('playerModal');
+  const iframe = document.getElementById('playerIframe');
+  
+  modal.style.display = 'none';
+  iframe.src = '';
+  iframe.style.display = 'none';
+}
+
+// Favorites functions
+function showFavorites() {
+  const grid = document.getElementById('gridContainer');
+  const sections = document.getElementById('sectionsContainer');
+  
+  sections.style.display = 'none';
+  grid.style.display = 'grid';
+  grid.innerHTML = '';
+  
+  document.getElementById('loadMoreContainer').style.display = 'none';
+  
+  const favorites = JSON.parse(localStorage.getItem('angoflix_favorites')) || [];
+  
+  if (favorites.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--muted);">
+        <i class="fas fa-heart" style="font-size:48px; margin-bottom:20px;"></i>
+        <div>Nenhum favorito adicionado ainda.</div>
+        <button class="button-primary" style="margin-top:20px;" onclick="showHome()">
+          Explorar Conteúdo
+        </button>
+      </div>
+    `;
+    return;
+  }
+  
+  favorites.forEach(fav => {
+    const card = document.createElement('div');
+    card.className = 'card';
     
-    iframe.src = '';
-    iframe.style.display = 'block';
-    downloadOptions.style.display = 'none';
-    modal.style.display = 'none';
+    // Para favoritos do Firebase
+    if (fav.type === 'firebase') {
+      const firebaseMovie = firebaseMovies.find(movie => movie.id === fav.id);
+      if (firebaseMovie) {
+        card.innerHTML = `
+          <img src="${firebaseMovie.capa}" 
+               alt="${firebaseMovie.titulo}"
+               loading="lazy"
+               onerror="this.src='https://via.placeholder.com/300x450/333/fff?text=Imagem+Não+Disponível'">
+          <div class="card-title">${firebaseMovie.titulo}</div>
+          <div style="position:absolute; top:8px; right:8px; background:var(--accent); color:white; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:600;">
+            🔥
+          </div>
+        `;
+        
+        card.onclick = () => showFirebaseMovieDetails(firebaseMovie);
+      }
+    } else {
+      // Para favoritos do TMDB
+      card.innerHTML = `
+        <div style="height:300px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; border-radius:var(--radius-sm);">
+          <i class="fas fa-heart" style="font-size:40px; color:var(--accent);"></i>
+        </div>
+        <div class="card-title">${fav.title}</div>
+        <div style="position:absolute; top:8px; right:8px; background:var(--accent); color:white; padding:4px 8px; border-radius:4px; font-size:12px; font-weight:600;">
+          ${fav.type === 'movie' ? '🎬' : '📺'}
+        </div>
+      `;
+      
+      card.onclick = () => {
+        if (fav.type === 'movie' || fav.type === 'tv') {
+          showDetails(fav.id, fav.type);
+        }
+      };
+    }
+    
+    grid.appendChild(card);
+  });
 }
 
-// Trailer - SEM REDIRECIONAMENTO
-function openTrailer(youtubeKey) {
-  // Abre o trailer em uma nova aba sem redirecionar a página atual
-  window.open(`https://www.youtube.com/watch?v=${youtubeKey}`, '_blank', 'noopener,noreferrer');
-}
-
-// Favoritos - SEM POPUPS
 function addToFavorites(id, type, title) {
   let favorites = JSON.parse(localStorage.getItem('angoflix_favorites')) || [];
   
-  // Verificar se já está nos favoritos
   const existingIndex = favorites.findIndex(fav => fav.id === id && fav.type === type);
   
   if (existingIndex > -1) {
@@ -1847,96 +2175,15 @@ function addToFavorites(id, type, title) {
   localStorage.setItem('angoflix_favorites', JSON.stringify(favorites));
 }
 
-function showFavorites() {
-  const favorites = JSON.parse(localStorage.getItem('angoflix_favorites')) || [];
-  const grid = document.getElementById('gridContainer');
-  grid.style.display = 'grid';
-  grid.innerHTML = '';
-  
-  if (favorites.length === 0) {
-    grid.innerHTML = `
-      <div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--muted);">
-        <i class="fas fa-heart" style="font-size:48px; margin-bottom:16px;"></i>
-        <div>Nenhum favorito adicionado ainda.</div>
-        <div style="font-size:14px; margin-top:8px;">Adicione filmes e séries aos favoritos clicando no coração.</div>
-      </div>
-    `;
-    return;
-  }
-  
-  favorites.forEach(fav => {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.innerHTML = `
-      <img src="https://via.placeholder.com/300x450/333/fff?text=Carregando..." 
-           alt="${fav.title}"
-           loading="lazy">
-      <div class="card-title">${fav.title}</div>
-      <div style="font-size:11px; text-align:center; color:var(--muted); margin-top:4px;">
-        <span style="background:var(--accent); color:white; padding:2px 6px; border-radius:4px; font-weight:600;">
-          ${fav.type === 'movie' ? 'FILME' : 'SÉRIE'}
-        </span>
-      </div>
-    `;
-    
-    card.onclick = () => showDetails(fav.id, fav.type);
-    grid.appendChild(card);
-    
-    // Carregar poster assincronamente
-    loadFavoritePoster(fav.id, fav.type, card.querySelector('img'));
-  });
-}
-
-async function loadFavoritePoster(id, type, imgElement) {
-  try {
-    const res = await fetch(`${BASE_URL}${type}/${id}?api_key=${API_KEY}`);
-    const data = await res.json();
-    
-    if (data.poster_path) {
-      imgElement.src = IMAGE_URL + data.poster_path;
-    }
-  } catch (error) {
-    console.error('Erro ao carregar poster do favorito:', error);
-  }
-}
-
-// Carregar Mais
-document.getElementById('loadMoreBtn').onclick = function() {
-  currentPage++;
-  
-  if (currentType === 'search') {
-    loadSearchResults(currentQuery, currentPage);
-  } else if (currentType === 'movie' || currentType === 'tv') {
-    loadCategoryPage(currentType, currentPage);
-  } else if (currentType === 'genre') {
-    loadGenre(currentGenre, currentPage);
-  }
-};
-
-// Utilitários - SEM POPUPS
+// Utility functions
 function showLoading(show) {
-  document.getElementById('loading').style.display = show ? 'flex' : 'none';
+  const loading = document.getElementById('loading');
+  loading.style.display = show ? 'flex' : 'none';
 }
 
-function downloadApp() {
-  showNotification('App AngoFlix em desenvolvimento! Em breve disponível para download.');
-}
-
-function openWhatsApp() {
-  // Abre em nova aba sem redirecionar
-  window.open('https://wa.me/244974928961', '_blank', 'noopener,noreferrer');
-}
-
-// Sistema de notificação sem popups
 function showNotification(message) {
-  // Remove notificação anterior se existir
-  const existingNotification = document.getElementById('customNotification');
-  if (existingNotification) {
-    existingNotification.remove();
-  }
-  
+  // Criar elemento de notificação
   const notification = document.createElement('div');
-  notification.id = 'customNotification';
   notification.style.cssText = `
     position: fixed;
     top: 20px;
@@ -1945,18 +2192,17 @@ function showNotification(message) {
     color: white;
     padding: 15px 20px;
     border-radius: var(--radius);
-    box-shadow: var(--shadow);
     z-index: 10000;
     font-weight: 600;
+    box-shadow: var(--shadow);
     transform: translateX(100%);
     transition: transform 0.3s ease;
-    max-width: 300px;
   `;
-  notification.textContent = message;
   
+  notification.textContent = message;
   document.body.appendChild(notification);
   
-  // Animação de entrada
+  // Animar entrada
   setTimeout(() => {
     notification.style.transform = 'translateX(0)';
   }, 100);
@@ -1965,11 +2211,22 @@ function showNotification(message) {
   setTimeout(() => {
     notification.style.transform = 'translateX(100%)';
     setTimeout(() => {
-      if (notification.parentNode) {
-        notification.parentNode.removeChild(notification);
-      }
+      document.body.removeChild(notification);
     }, 300);
   }, 3000);
+}
+
+function downloadApp() {
+  showNotification('App em desenvolvimento! Em breve disponível para download.');
+}
+
+function openWhatsApp() {
+  window.open('https://wa.me/244923456789?text=Olá! Gostaria de saber mais sobre o AngoFlix.', '_blank');
+}
+
+function downloadFile(title, quality) {
+  showNotification(`Iniciando download de ${title} em qualidade ${quality.toUpperCase()}`);
+  // Simulação de download - na implementação real, você teria URLs reais
 }
 
 // Inicializar rota atual
